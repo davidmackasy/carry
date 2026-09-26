@@ -1,0 +1,18 @@
+import assert from 'node:assert/strict';
+const origin='http://localhost:5173';
+const login=await fetch(origin+'/signin-with-chatgpt?return_to=/',{redirect:'manual'});
+const cookie=login.headers.get('set-cookie')?.split(';')[0];assert.ok(cookie);
+const headers={Cookie:cookie,Origin:origin,'Content-Type':'application/json'};
+const get=async path=>fetch(origin+path,{headers});
+const profile=await (await get('/api/finance')).json();
+assert.equal(profile.state.name,'Test budget');assert.equal(profile.state.setupVersion,2);
+assert.equal(profile.state.accounts[0].balance,207500);
+assert.ok(profile.state.bills.some(b=>b.name==='Car payment'&&b.amount===31000));
+assert.equal(profile.state.income[0].employer,'Example employer');
+const draft=await (await get('/api/setup')).json();assert.equal(draft.draft,null);
+assert.equal((await fetch(origin+'/api/setup')).status,401);
+assert.equal((await fetch(origin+'/api/setup',{method:'PUT',headers,body:JSON.stringify({draft:{},revision:0})})).status,400);
+assert.equal((await fetch(origin+'/api/setup',{method:'PUT',headers:{...headers,Origin:'https://invalid.example'},body:'{}'})).status,403);
+const delivery=await (await get('/api/reminders')).json();assert.equal(delivery.deliveryStatus,'needs_sender');
+assert.equal((await fetch(origin+'/api/reminders/dispatch',{method:'POST'})).status,401);
+console.log('PASS: completed guided setup, selected bill, unchanged cash, employer, cleared draft, auth, validation, origin protection, inactive email, protected dispatcher');

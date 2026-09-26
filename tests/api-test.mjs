@@ -1,0 +1,12 @@
+import assert from 'node:assert/strict';
+const url='http://localhost:5173';
+const login=await fetch(url+'/signin-with-chatgpt?return_to=/',{redirect:'manual'});
+const cookie=login.headers.get('set-cookie')?.split(';')[0];assert.ok(cookie,'Local test auth cookie');
+const headers={Cookie:cookie,'Content-Type':'application/json',Origin:url};
+const anonymous=await fetch(url+'/api/finance');assert.equal(anonymous.status,401);
+const initial=await fetch(url+'/api/finance',{headers});assert.equal(initial.status,200);const data=await initial.json();assert.equal(data.state.name,'Test budget');assert.equal(data.state.accounts[0].balance,207500);assert.equal(data.state.goals[0].contribution,30000);assert.equal(data.summary.billReserve,124000);
+const invalid=await fetch(url+'/api/finance',{method:'POST',headers,body:JSON.stringify({revision:data.revision,state:{...data.state,protectedMinimum:-1}})});assert.equal(invalid.status,400);
+const cross=await fetch(url+'/api/finance',{method:'POST',headers:{...headers,Origin:'https://untrusted.example'},body:JSON.stringify({revision:data.revision,state:data.state})});assert.equal(cross.status,403);
+const conflict=await fetch(url+'/api/finance',{method:'POST',headers,body:JSON.stringify({revision:data.revision+100,state:data.state})});assert.equal(conflict.status,409);
+const advisor=await fetch(url+'/api/advisor',{method:'POST',headers,body:JSON.stringify({question:'What bills are coming next week?'})});assert.equal(advisor.status,200);assert.equal(typeof (await advisor.json()).answer,'string');
+console.log('PASS: saved onboarding and goal values, unauthenticated rejection, input validation, cross-origin rejection, revision conflict, and server Advisor');
