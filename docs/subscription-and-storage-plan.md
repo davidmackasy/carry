@@ -1,14 +1,14 @@
-# Carry: subscription and Supabase launch plan
+# Gift: subscription and Supabase launch plan
 
 Research date: September 25, 2026. Proposal, not activated pricing. USD / US web launch assumed until confirmed.
 
 ## Recommendation
 
-One paid plan, **Carry**, with the same features at **$5.99 monthly** or **$49.99 annually**. Annual billing works out to $4.17/month, paid as one $49.99 charge, saving $21.89 (30.5%) against twelve monthly payments. Present both clearly; do not disguise the upfront annual charge as a monthly payment.
+One paid plan, **Gift**, with the same features at **$5.99 monthly** or **$49.99 annually**. Annual billing works out to $4.17/month, paid as one $49.99 charge, saving $21.89 (30.5%) against twelve monthly payments. Present both clearly; do not disguise the upfront annual charge as a monthly payment.
 
 Offer a **30-day trial without a card**, starting when onboarding is completed. This lets users see a paycheck/bill cycle before buying. After the trial, require an explicit checkout to subscribe. Never auto-charge a no-card trial. Keep viewing existing records, export, deletion, and billing management available after expiration; pause new budget edits and premium automation until renewed. Cancel at period end with continued access through the paid-through date. Send an annual-renewal reminder. No lifetime deal or permanent founding discount until costs and retention are measured.
 
-This is a price hypothesis, not a proven optimum. It fits a focused manual money planner below mature products with bank connectivity. Do not claim that Carry saves a particular amount or that subscription revenue is profit.
+This is a price hypothesis, not a proven optimum. It fits a focused manual money planner below mature products with bank connectivity. Do not claim that Gift saves a particular amount or that subscription revenue is profit.
 
 ## Competitive reference points
 
@@ -17,7 +17,7 @@ This is a price hypothesis, not a proven optimum. It fits a focused manual money
 | YNAB | $14.99 | $109 | 34-day no-card trial; bank imports and household sharing |
 | Goodbudget Premium | $10 | $80 | Envelope budgeting plus bank sync |
 | Monarch Core | $14.99 | $99.99 | Broader connected-finance product |
-| Carry proposal | $5.99 | $49.99 | Guided setup, manual spending, upcoming-event calendar, forecasts and goals |
+| Gift proposal | $5.99 | $49.99 | Guided setup, manual spending, upcoming-event calendar, forecasts and goals |
 
 Primary sources: [YNAB pricing](https://www.ynab.com/pricing), [Goodbudget signup](https://goodbudget.com/signup), [Goodbudget Premium announcement](https://goodbudget.com/blog/2024/08/changes-to-goodbudgets-plan-offerings/). Standard prices, excluding taxes/promotions. Monarch Core prices verified in its [subscription management documentation](https://help.monarch.com/hc/en-us/articles/44815447567636-Updating-Your-Subscription).
 
@@ -44,9 +44,9 @@ Track trial-to-paid conversion, month-two retention, cancellation reasons, annua
 
 ## Current storage versus target
 
-Carry already persists data: the private Sites app uses Cloudflare D1, user-scoped financial documents, draft setup, daily snapshots and email delivery records. Supabase is a migration, not the first storage layer. The GitHub copy includes existing D1 migrations so the present app remains reproducible.
+Gift already persists data: the private Sites app uses Cloudflare D1, user-scoped financial documents, draft setup, daily snapshots and email delivery records. Supabase is a migration, not the first storage layer. The GitHub copy includes existing D1 migrations so the present app remains reproducible.
 
-Recommended target: Supabase Auth for app identities, Postgres with owner-scoped RLS for budget records, and private Supabase Storage buckets for future receipts. Stripe owns payment methods, invoices and subscription billing; Supabase stores customer/subscription references and access state. Never store card numbers in Carry.
+Recommended target: Supabase Auth for app identities, Postgres with owner-scoped RLS for budget records, and private Supabase Storage buckets for future receipts. Stripe owns payment methods, invoices and subscription billing; Supabase stores customer/subscription references and access state. Never store card numbers in Gift.
 
 The present Sites identity is not a Supabase auth UUID. Do not cast it into one or silently match ownership solely by email. Require authenticated account linking and a recorded mapping from legacy identity to new auth user. Export, validate, and compare source/target totals before changing the storage backend. Keep D1 intact for rollback; no migration or deletion has been performed.
 

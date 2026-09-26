@@ -1,4 +1,4 @@
-# Carry
+# Gift
 
 A working manual-budgeting PWA built with TypeScript, React, Next.js-compatible Vinext, and Tailwind. This first deployment runs privately on Sites with authenticated, user-scoped D1 storage.
 
