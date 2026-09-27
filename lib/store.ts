@@ -1,8 +1,22 @@
-import {env} from 'cloudflare:workers';
+import {supabase} from '@/lib/supabase/server';
 import type {FinanceState} from '@/types/finance';
 import {emptyState} from '@/services/finance/sample';
 import {summarize,today} from '@/services/finance';
-export const db=()=>{const binding=(env as unknown as {DB:D1Database}).DB;if(!binding)throw new Error('Storage unavailable');return binding;};
-export async function readProfile(userId:string){const row=await db().prepare('SELECT data, revision FROM financial_profiles WHERE user_id = ?').bind(userId).first<{data:string;revision:number}>();const state:FinanceState=row?JSON.parse(row.data):emptyState();if(state.onboarded){const current=summarize(state);await db().prepare('INSERT INTO runway_snapshots (user_id,date,runway,balance,safe) VALUES (?,?,?,?,?) ON CONFLICT(user_id,date) DO NOTHING').bind(userId,today(state.timezone),current.runway.days,current.balance,current.safe.today).run();}const snapshots=await db().prepare('SELECT date, runway, balance, safe FROM runway_snapshots WHERE user_id = ? ORDER BY date DESC LIMIT 180').bind(userId).all();state.snapshots=(snapshots.results as FinanceState['snapshots']).reverse();return {state,revision:row?.revision??0,summary:summarize(state)};}
-export async function saveProfile(userId:string,state:FinanceState,revision:number,email?:string){const now=new Date().toISOString();const saved=await db().prepare('INSERT INTO financial_profiles (user_id, data, revision, updated_at) VALUES (?, ?, 1, ?) ON CONFLICT(user_id) DO UPDATE SET data = excluded.data, revision = financial_profiles.revision + 1, updated_at = excluded.updated_at WHERE financial_profiles.revision = ?').bind(userId,JSON.stringify({...state,snapshots:[]}),now,revision).run();if(!saved.meta.changes)throw new Error('CONFLICT');if(email)await db().prepare('INSERT INTO email_recipients (user_id,email,enabled) VALUES (?,?,?) ON CONFLICT(user_id) DO UPDATE SET email=excluded.email,enabled=excluded.enabled').bind(userId,email,state.reminders?.emailEnabled?1:0).run();const summary=summarize(state);await db().prepare('INSERT INTO runway_snapshots (user_id, date, runway, balance, safe) VALUES (?, ?, ?, ?, ?) ON CONFLICT(user_id,date) DO UPDATE SET runway = excluded.runway, balance = excluded.balance, safe = excluded.safe').bind(userId,today(state.timezone),summary.runway.days,summary.balance,summary.safe.today).run();return readProfile(userId);}
-export async function eraseProfile(userId:string){await db().batch([db().prepare('DELETE FROM setup_drafts WHERE user_id=?').bind(userId),db().prepare('DELETE FROM email_recipients WHERE user_id=?').bind(userId),db().prepare('DELETE FROM email_deliveries WHERE user_id=?').bind(userId),db().prepare('DELETE FROM runway_snapshots WHERE user_id = ?').bind(userId),db().prepare('DELETE FROM financial_profiles WHERE user_id = ?').bind(userId),db().prepare('INSERT INTO audit_events (id,user_id,action,created_at) VALUES (?,?,?,?)').bind(crypto.randomUUID(),userId,'financial_data_deleted',new Date().toISOString())]);}
+export function check(error:{message:string}|null){if(error)throw new Error(error.message.includes('CONFLICT')?'CONFLICT':'Storage unavailable');}
+export async function readProfile(userId:string){
+ const client=await supabase();
+ const {data:row,error}=await client.from('financial_profiles').select('data,revision').eq('user_id',userId).maybeSingle();check(error);
+ const state:FinanceState=row?row.data:emptyState();
+ if(state.onboarded){const current=summarize(state);const saved=await client.from('runway_snapshots').upsert({user_id:userId,date:today(state.timezone),runway:current.runway.days,balance:current.balance,safe:current.safe.today},{onConflict:'user_id,date',ignoreDuplicates:true});check(saved.error);}
+ const snapshots=await client.from('runway_snapshots').select('date,runway,balance,safe').eq('user_id',userId).order('date',{ascending:false}).limit(180);check(snapshots.error);
+ state.snapshots=(snapshots.data??[]).reverse();return {state,revision:row?.revision??0,summary:summarize(state)};
+}
+export async function saveProfile(userId:string,state:FinanceState,revision:number,_email?:string){
+ const client=await supabase();const summary=summarize(state);
+ const {error}=await client.rpc('save_gift_profile',{p_data:{...state,snapshots:[]},p_revision:revision,p_date:today(state.timezone),p_runway:summary.runway.days,p_balance:summary.balance,p_safe:summary.safe.today});check(error);return readProfile(userId);
+}
+export async function eraseProfile(_userId:string){const client=await supabase();const {error}=await client.rpc('erase_gift_profile');check(error);}
+export async function readDraft(userId:string){const client=await supabase();const {data,error}=await client.from('setup_drafts').select('data,revision').eq('user_id',userId).maybeSingle();check(error);return {draft:data?.data??null,revision:data?.revision??0};}
+export async function saveDraft(draft:unknown,revision:number){const client=await supabase();const {data,error}=await client.rpc('save_gift_draft',{p_data:draft,p_revision:revision});check(error);return {revision:data};}
+export async function deleteDraft(userId:string){const client=await supabase();const {error}=await client.from('setup_drafts').delete().eq('user_id',userId);check(error);}
+export async function reminderHeartbeat(){const client=await supabase();const {data,error}=await client.from('job_heartbeats').select('created_at').eq('id','reminder-job-heartbeat').maybeSingle();check(error);return data;}

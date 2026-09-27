@@ -48,3 +48,6 @@ next-env.d.ts
 !.env.example
 
 *.tsbuildinfo
+
+# Wrangler local runtime secrets
+.dev.vars*

@@ -1,0 +1,17 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "gift",
+  "account_id": "f8e963c4de07dc7d399bc2126d0b18a9",
+  "main": "vinext/server/fetch-handler",
+  "compatibility_date": "2026-05-15",
+  "compatibility_flags": ["nodejs_compat"],
+  "workers_dev": true,
+  "vars": {
+    "NEXT_PUBLIC_APP_URL": "https://budgetwithgift.com"
+  },
+  "env": {
+    "preview": {
+      "name": "gift-preview"
+    }
+  }
+}

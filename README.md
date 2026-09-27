@@ -1,5 +1,8 @@
 # Gift
 
+**Standalone Cloudflare deployment:** follow [the deployment guide](docs/cloudflare-deployment.md). This GitHub version uses Supabase Auth and storage. Historical Sites instructions below describe the original hosted app, not the new deployment.
+
+
 A working manual-budgeting PWA built with TypeScript, React, Next.js-compatible Vinext, and Tailwind. This first deployment runs privately on Sites with authenticated, user-scoped D1 storage.
 
 ## Working flows
