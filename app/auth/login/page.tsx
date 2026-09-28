@@ -1,6 +1,4 @@
-import {login,signup,forgotPassword} from './actions';
+import AuthForm from '../form';
+import {safeNext} from '@/lib/auth/http';
 export const dynamic='force-dynamic';
-export default async function Login({searchParams}:{searchParams:Promise<{message?:string;next?:string}>}){
- const params=await searchParams;
- return <main className="startup"><section style={{width:'min(100%,420px)',padding:24}}><a className="brand" href="/">Gift</a><h1>Your money, organized.</h1><p>Sign in or create your account to start your budget.</p>{params.message&&<p role="status">{params.message}</p>}<form action={login}><input type="hidden" name="next" value={params.next??'/'}/><label className="field">Email<input className="carry-input" name="email" type="email" autoComplete="email" required maxLength={254}/></label><label className="field">Password<input className="carry-input" name="password" type="password" autoComplete="current-password" required minLength={8} maxLength={128}/></label><button className="primary" type="submit">Sign in</button><button className="secondary" type="submit" formAction={signup}>Create account</button><button className="secondary" type="submit" formAction={forgotPassword} formNoValidate>Forgot password?</button></form><p>Moving from the original app? After signing in, <a href="/import">import your exported budget</a>.</p></section></main>;
-}
+export default async function Login({searchParams}:{searchParams:Promise<{message?:string;next?:string}>}){const p=await searchParams;return <AuthForm mode="login" next={safeNext(p.next)} initialMessage={p.message}/>;}

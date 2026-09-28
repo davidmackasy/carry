@@ -6,7 +6,7 @@ This GitHub checkout now targets standalone Cloudflare Workers with Supabase aut
 
 Open your Supabase project → SQL Editor → New query. Paste and run `supabase/migrations/202609270001_gift.sql` once. This creates the budget, setup, reminder and snapshot tables, with user isolation policies and transactional save functions. No database password is required by the app. The secret API key is only needed by the server-side reminder dispatcher; normal user requests use the user's authenticated session and row-level security.
 
-In Authentication → URL Configuration, set Site URL to the actual deployed HTTPS origin. Use your new Worker URL until budgetwithgift.com is attached and active, then update Site URL. Add `http://localhost:5173/**` only for local testing if needed. Enable the Email provider and email confirmation.
+In Authentication → URL Configuration, set Site URL to the actual deployed HTTPS origin. Use your new Worker URL until budgetwithgift.com is attached and active, then update Site URL. Add your deployed origin followed by `/**` to Redirect URLs (currently `https://gift.davidmackasy.workers.dev/**`) so signup and recovery callbacks are permitted. Add `http://localhost:5173/**` only for local testing if needed. Enable the Email provider and email confirmation.
 
 In Authentication → Email Templates use these confirmation link targets:
 
