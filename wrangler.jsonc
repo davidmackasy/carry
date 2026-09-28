@@ -19,12 +19,23 @@
       "name": "gift-preview",
       "triggers": {
         "crons": []
-      }
+      },
+      "routes": []
     }
   },
   "triggers": {
     "crons": [
       "*/15 * * * *"
     ]
-  }
+  },
+  "routes": [
+    {
+      "pattern": "budgetwithgift.com",
+      "custom_domain": true
+    },
+    {
+      "pattern": "www.budgetwithgift.com",
+      "custom_domain": true
+    }
+  ]
 }
