@@ -16,7 +16,7 @@ const encode=v=>Buffer.from(JSON.stringify(v)).toString('base64url');
 const token=encode({alg:'HS256',typ:'JWT'})+'.'+encode({sub:user.id,exp:Math.floor(Date.now()/1000)+3600,iat:Math.floor(Date.now()/1000),aud:'authenticated',role:'authenticated'})+'.test';
 const session={access_token:token,refresh_token:'test-refresh-token',expires_in:3600,expires_at:Math.floor(Date.now()/1000)+3600,token_type:'bearer',user};
 const req=(body,headers={})=>new Request(origin+'/api/auth',{method:'POST',headers:{origin,'Content-Type':'application/json',...headers},body:JSON.stringify(body)});
-const json=(data,status=200)=>new Response(JSON.stringify(data),{status,headers:{'Content-Type':'application/json'}});
+const json=(data,status=200)=>new Response(JSON.stringify(data),{status,headers:{'Content-Type':'application/json','X-Supabase-Api-Version':'2024-01-01'}});
 const cookieHeader=response=>response.headers.getSetCookie().map(v=>v.split(';')[0]).join('; ');
 
 test('successful login returns cookies that authenticate the next request',async()=>{
@@ -63,4 +63,20 @@ test('signout clears session cookies and reset requires an authenticated session
  const signedOut=await handleAuth(req({action:'signout'},{cookie:cookieHeader(signedIn)}),config,async(url)=>String(url).includes('/user')?json(user):new Response(null,{status:204}));
  assert.equal((await signedOut.json()).redirect,'/auth/login');assert.ok(signedOut.headers.getSetCookie().some(v=>v.includes('Max-Age=0')));
  const reset=await handleAuth(req({action:'reset',password:'password123',confirmPassword:'password123'}),config,async()=>{throw Error('No session');});assert.equal(reset.status,401);
+});
+test('authenticated password reset succeeds and sends the password to the update endpoint',async()=>{
+ const signedIn=await handleAuth(req({action:'login',email:user.email,password:'original123'}),config,async()=>json(session));
+ let updated=false;
+ const result=await handleAuth(req({action:'reset',password:'different123!',confirmPassword:'different123!'},{cookie:cookieHeader(signedIn)}),config,async(url,options)=>{
+  assert.match(String(url),/\/auth\/v1\/user/);
+  if(options.method==='PUT'){assert.equal(JSON.parse(options.body).password,'different123!');updated=true;}
+  return json(user);
+ });assert.equal(result.status,200);assert.equal((await result.json()).redirect,'/');assert.ok(updated);
+});
+test('reset explains provider rejections without exposing raw provider messages',async()=>{
+ const signedIn=await handleAuth(req({action:'login',email:user.email,password:'original123'}),config,async()=>json(session));
+ for(const [code,pattern] of [['same_password',/different password/],['weak_password',/security requirements/],['reauthentication_needed',/fresh password-reset email/],['session_not_found',/session expired/],['unexpected_failure',/could not complete/]]){
+  const result=await handleAuth(req({action:'reset',password:'different123!',confirmPassword:'different123!'},{cookie:cookieHeader(signedIn)}),config,async(url,options)=>options.method==='PUT'?json({code,msg:'private-provider-details'},422):json(user));
+  assert.equal(result.status,400);const data=await result.json();assert.match(data.error,pattern);assert.equal(data.code,code);assert.ok(!JSON.stringify(data).includes('private-provider-details'));
+ }
 });
