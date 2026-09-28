@@ -4,10 +4,12 @@
   "account_id": "f8e963c4de07dc7d399bc2126d0b18a9",
   "main": "vinext/server/fetch-handler",
   "compatibility_date": "2026-05-15",
-  "compatibility_flags": ["nodejs_compat"],
+  "compatibility_flags": [
+    "nodejs_compat"
+  ],
   "workers_dev": true,
   "vars": {
-    "NEXT_PUBLIC_APP_URL": "https://budgetwithgift.com"
+    "NEXT_PUBLIC_APP_URL": "https://gift.davidmackasy.workers.dev"
   },
   "env": {
     "preview": {
