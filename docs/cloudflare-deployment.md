@@ -66,3 +66,21 @@ Only after login and budget saving work, add budgetwithgift.com as a custom doma
 - TypeScript check, production build, and Wrangler deployment dry run.
 
 Cloudflare publication, real Supabase signup/email delivery, and authenticated end-to-end saving still require the above dashboard configuration. No production database was changed by these local tests.
+
+## Mailgun budget reminders
+
+Authentication email remains configured in Supabase custom SMTP. Budget reminders now use Mailgun's HTTP API and the Gift Worker's native cron (`*/15 * * * *`). Preview deployments have no cron.
+
+Production Worker Settings → Variables and Secrets:
+- Secret `MAILGUN_API_KEY`: a domain Sending Key from Mailgun (not the SMTP password).
+- Secret `SUPABASE_SECRET_KEY`: the project's server-only Supabase secret, needed to read opted-in reminder recipients. Never use a public variable prefix.
+
+The repository config supplies `MAILGUN_DOMAIN=budgetwithgift.com`, `MAILGUN_REGION=US`, and `GIFT_EMAIL_FROM=Gift <no-reply@budgetwithgift.com>`. Set region EU only if the Mailgun domain is in Europe. `NEXT_PUBLIC_APP_URL` must be the active Gift URL.
+
+After deployment and secret configuration, allow a scheduled run (Cloudflare trigger changes can take time to propagate). The reminder UI reports ready only with sender/storage configuration and a recent successful database heartbeat. This indicates configuration/job health, not guaranteed inbox delivery. Confirm an opted-in due reminder in Mailgun's sending logs and recipient inbox. No test email is automatically sent by builds.
+
+Existing opt-in, bill/payday lead times, local timezone, paid bills and received paychecks are respected. Users must finish onboarding, save email reminders enabled, and have a reminder due today. The job sends at or after their chosen local hour, within the next 15-minute scheduled window under normal operation.
+
+Delivery rows provide atomic claims. Mailgun does not provide the Resend idempotency contract: ambiguous network/provider failures and interrupted sends are deliberately not automatically resent, preventing duplicate reminders. Only explicit 429 rejections are retried. Inspect failed/stuck sending rows and Mailgun logs before any manual replay. A provider-accepted message can still bounce or be filtered.
+
+The existing manual POST `/api/reminders/dispatch` remains protected by `CARRY_REMINDER_JOB_SECRET` if configured. The native cron calls the dispatcher internally and needs no HTTP job secret.
