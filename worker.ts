@@ -1,3 +1,4 @@
+export {BillingAccount} from './lib/billing/account';
 import handler from 'vinext/server/fetch-handler';
 import {dispatchReminders} from './services/notifications/dispatch';
 export default {

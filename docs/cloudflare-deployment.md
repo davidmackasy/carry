@@ -1,6 +1,6 @@
 # Deploy Gift to your Cloudflare account
 
-This GitHub checkout now targets standalone Cloudflare Workers with Supabase authentication and PostgreSQL storage. The existing Sites deployment and its D1 data are unchanged. No WAF rules or Stripe billing integration are added by this migration.
+This GitHub checkout now targets standalone Cloudflare Workers with Supabase authentication and PostgreSQL storage. The existing Sites deployment and its D1 data are unchanged. No WAF rules are added. Optional Stripe subscriptions are now available; see subscription-and-storage-plan.md.
 
 ## 1. Prepare Supabase (required before using the deployed app)
 
@@ -49,7 +49,7 @@ Required only for email reminders:
 
 The compatible CARRY_ names avoid changing the existing email adapter. Configure a scheduler to POST `/api/reminders/dispatch` every 15 minutes with `Authorization: Bearer <CARRY_REMINDER_JOB_SECRET>`. The UI reports reminders as unconfigured until a provider and recent successful scheduler run exist.
 
-Local `.env.local` is ignored by Git and does not get uploaded to Cloudflare. Never commit secrets or put server secrets in client-prefixed variables. Use replacement secrets for any previously shared in chat. Stripe values can remain private, but checkout and webhooks are not implemented in this change; do not enable live billing yet.
+Local `.env.local` is ignored by Git and does not get uploaded to Cloudflare. Never commit secrets or put server secrets in client-prefixed variables. Use replacement secrets for any previously shared in chat. Stripe checkout, customer portal, and signed webhooks are deployed. Existing budget access remains open; billing does not yet enforce an access gate.
 
 ## 4. Bring over an existing budget
 

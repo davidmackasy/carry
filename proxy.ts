@@ -16,4 +16,4 @@ export async function proxy(request:NextRequest){
   response.headers.set('Cache-Control','private, no-store');
   return response;
 }
-export const config={matcher:['/((?!api/reminders/dispatch|_next|assets|favicon|icon-|manifest.json|sw.js|offline.html).*)']};
+export const config={matcher:['/((?!api/reminders/dispatch|api/stripe/webhook|_next|assets|favicon|icon-|manifest.json|sw.js|offline.html).*)']};

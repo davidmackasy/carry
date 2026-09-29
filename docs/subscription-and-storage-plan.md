@@ -1,3 +1,13 @@
+# Current subscription implementation
+
+Gift now offers Stripe-hosted checkout at $5.99/month or $49.99/year, with a 14-day first-subscription trial and card collection upfront. Renewal terms are shown before checkout. Existing budget access remains open until an explicit paywall rollout is authorized. No user is automatically enrolled.
+
+Billing links are under Subscription & billing. The Stripe customer portal supports cancellation at period end, payment updates, and invoices. Account/customer/session mapping lives in a private Cloudflare SQLite Durable Object per Supabase user. Status reads reconcile directly with Stripe; signed webhooks acknowledge events but do not grant access from event payloads. No new Supabase tables are required. Authenticated, same-origin requests choose an interval, never arbitrary price/customer IDs. Only configured Gift prices are recognized.
+
+Validation: mocked checkout, duplicate-session protection, first-trial and returning-subscriber rules, webhook tampering/replay tolerance, TypeScript, Worker build. No live card charge or completed subscription has been tested. A 24-hour Stripe idempotency expiry after a customer-create network ambiguity remains an operational recovery case: reconcile Stripe metadata before manually clearing billing storage.
+
+## Historical planning notes (superseded where different)
+
 # Gift: subscription and Supabase launch plan
 
 Research date: September 25, 2026. Proposal, not activated pricing. USD / US web launch assumed until confirmed.

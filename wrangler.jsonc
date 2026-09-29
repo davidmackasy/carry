@@ -12,7 +12,10 @@
     "NEXT_PUBLIC_APP_URL": "https://gift.davidmackasy.workers.dev",
     "MAILGUN_DOMAIN": "budgetwithgift.com",
     "MAILGUN_REGION": "US",
-    "GIFT_EMAIL_FROM": "Gift <no-reply@budgetwithgift.com>"
+    "GIFT_EMAIL_FROM": "Gift <no-reply@budgetwithgift.com>",
+    "STRIPE_PRICE_MONTHLY": "price_1UJp46Ij3yjjAAsii12Robxy",
+    "STRIPE_PRICE_YEARLY": "price_1UJp4mIj3yjjAAsiKIIOpCqt",
+    "STRIPE_PORTAL_CONFIGURATION": "bpc_1UKpgeIj3yjjAAsiGjidUz4i"
   },
   "env": {
     "preview": {
@@ -36,6 +39,22 @@
     {
       "pattern": "www.budgetwithgift.com",
       "custom_domain": true
+    }
+  ],
+  "durable_objects": {
+    "bindings": [
+      {
+        "name": "BILLING_ACCOUNTS",
+        "class_name": "BillingAccount"
+      }
+    ]
+  },
+  "migrations": [
+    {
+      "tag": "gift-billing-v1",
+      "new_sqlite_classes": [
+        "BillingAccount"
+      ]
     }
   ]
 }
