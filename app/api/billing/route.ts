@@ -1,8 +1,10 @@
+import {readProfile} from '@/lib/store';
 import {env} from 'cloudflare:workers';
 import {getChatGPTUser} from '@/app/chatgpt-auth';
 export const dynamic='force-dynamic';
 async function handle(request:Request,action:string,interval?:string){
  const user=await getChatGPTUser();if(!user)return Response.json({error:'Sign in first.'},{status:401});
+ if(action==='checkout'&&!(await readProfile(user.userId)).state.onboarded)return Response.json({error:'Finish your guided setup before choosing a plan.',redirect:'/'},{status:409});
  const ns=(env as unknown as {BILLING_ACCOUNTS:DurableObjectNamespace}).BILLING_ACCOUNTS;
  if(!ns)return Response.json({error:'Billing is not available yet.'},{status:503});
  const result=await ns.get(ns.idFromName(user.userId)).fetch('https://billing.internal',{method:'POST',body:JSON.stringify({action,interval,userId:user.userId,email:user.email})});

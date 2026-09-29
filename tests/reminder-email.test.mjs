@@ -24,5 +24,5 @@ test('only explicit rate limiting is automatically retryable; ambiguous failures
 });
 test('reminder includes estimates disclaimer and opt-out instructions',()=>{
  const p=reminderEmail({title:'Payday in two days',body:'Estimated pay: $500',id:'id'},'test@example.com',payload.from,'https://budgetwithgift.com');
- assert.match(p.subject,/Gift/);assert.match(p.text,/has not verified a bank deposit/);assert.match(p.text,/turn off email reminders/);
+ assert.match(p.subject,/Gift/);assert.match(p.text,/has not verified a bank deposit/);assert.match(p.text,/Turn off reminder emails/);
 });

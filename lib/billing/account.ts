@@ -11,7 +11,7 @@ export class BillingAccount extends DurableObject<BillingEnv>{
  let customer=await this.ctx.storage.get<string>('customer');
  if(!customer&&action==='checkout'){
   // Persist the idempotency key before the network call, including retries after interruption.
-  let key=await this.ctx.storage.get<string>('customerKey');if(!key){key=crypto.randomUUID();await this.ctx.storage.put('customerKey',key);}
+  let key=await this.ctx.storage.get<string>('customerKey');const started=await this.ctx.storage.get<number>('customerStarted');if(key&&(!started||Date.now()-started>23*3600000))throw new Error('Customer creation needs reconciliation');if(!key){key=crypto.randomUUID();await this.ctx.storage.put('customerKey',key);await this.ctx.storage.put('customerStarted',Date.now());}
   const c=await stripe<{id:string}>(this.env,'customers',{email,'metadata[gift_user_id]':userId,'metadata[app]':'gift'},key);customer=c.id;await this.ctx.storage.put('customer',customer);
  }
  const all=customer?await stripe<{data:Subscription[]}>(this.env,`subscriptions?customer=${encodeURIComponent(customer)}&status=all&limit=100`):{data:[]};

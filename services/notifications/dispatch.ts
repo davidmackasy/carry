@@ -1,3 +1,4 @@
+import {billingStatus} from '../../lib/billing/access';
 import {createClient} from '@supabase/supabase-js';
 import {emailConfig} from '../../lib/email-config';
 import {dueReminders} from './index';
@@ -17,7 +18,7 @@ export async function dispatchReminders(){
    for(const row of rows.data){
     cursor=row.user_id;
     const profile=await db.from('financial_profiles').select('data').eq('user_id',row.user_id).maybeSingle();check(profile.error);
-    const state=profile.data?.data as FinanceState|undefined;if(!state?.onboarded||!state.reminders?.emailEnabled)continue;
+    const state=profile.data?.data as FinanceState|undefined;if(!state?.onboarded||!state.reminders?.emailEnabled)continue;if(!(await billingStatus(row.user_id,row.email)).access)continue;
     const hour=Number(new Intl.DateTimeFormat('en-US',{timeZone:state.timezone??'UTC',hour:'2-digit',hourCycle:'h23'}).format(new Date()));if(hour<state.reminders.sendHour)continue;
     for(const reminder of dueReminders(state)){
      const bytes=await crypto.subtle.digest('SHA-256',new TextEncoder().encode(`${row.user_id}:${reminder.id}`));const id=Array.from(new Uint8Array(bytes),b=>b.toString(16).padStart(2,'0')).join('');

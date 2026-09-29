@@ -1,4 +1,4 @@
-import {supabase} from '@/lib/supabase/server';
+import {supabase,supabaseAdmin} from '@/lib/supabase/server';
 import type {FinanceState} from '@/types/finance';
 import {emptyState} from '@/services/finance/sample';
 import {summarize,today} from '@/services/finance';
@@ -15,7 +15,7 @@ export async function saveProfile(userId:string,state:FinanceState,revision:numb
  const client=await supabase();const summary=summarize(state);
  const {error}=await client.rpc('save_gift_profile',{p_data:{...state,snapshots:[]},p_revision:revision,p_date:today(state.timezone),p_runway:summary.runway.days,p_balance:summary.balance,p_safe:summary.safe.today});check(error);return readProfile(userId);
 }
-export async function eraseProfile(_userId:string){const client=await supabase();const {error}=await client.rpc('erase_gift_profile');check(error);}
+export async function eraseProfile(_userId:string){const storage=supabaseAdmin().storage.from('gift-memories');while(true){const {data,error}=await storage.list(_userId,{limit:100});check(error);if(!data?.length)break;const removed=await storage.remove(data.map(f=>`${_userId}/${f.name}`));check(removed.error);}const client=await supabase();const {error}=await client.rpc('erase_gift_profile');check(error);}
 export async function readDraft(userId:string){const client=await supabase();const {data,error}=await client.from('setup_drafts').select('data,revision').eq('user_id',userId).maybeSingle();check(error);return {draft:data?.data??null,revision:data?.revision??0};}
 export async function saveDraft(draft:unknown,revision:number){const client=await supabase();const {data,error}=await client.rpc('save_gift_draft',{p_data:draft,p_revision:revision});check(error);return {revision:data};}
 export async function deleteDraft(userId:string){const client=await supabase();const {error}=await client.from('setup_drafts').delete().eq('user_id',userId);check(error);}

@@ -1,0 +1,17 @@
+# Gift release: trial access, receipts, and everyday memories
+
+The app now lets new users finish setup before asking them to choose monthly or yearly billing. Budget reads, writes, advice, photo uploads, and scheduled emails require a live Stripe active/trialing subscription. Existing onboarded accounts follow the same rule. Stripe errors fail closed. Export, account-data deletion, billing, and stopping reminder emails remain available without a subscription. No account is automatically subscribed or charged by deploying this change.
+
+Receipt OCR runs in the browser using Tesseract.js. Its runtime/language assets download from the library's CDN; receipt images are processed locally. Users review store, total, date, and item names before recording spending. Confirming subtracts the total once from the first account, consistent with the existing manual transaction flow. Item groups do not add additional charges. Exact same-store/date/amount duplicates are blocked in this flow. English JPEG/PNG/WebP images are supported; recognition accuracy varies. All extracted text is untrusted and rendered as text.
+
+Photos are resized/re-encoded to JPEG (stripping original metadata), limited to 2 MB, and saved under authenticated user-specific paths in the private gift-memories bucket. The library has a 200-photo limit. The API never accepts a user ID or arbitrary object path from the client. Private photos remain downloadable by their owner after subscription expiry. Removing a receipt photo preserves spending; deleting financial data removes the photo library too. Uploaded files whose budget save fails are removed when possible; an interrupted browser can leave an orphan that counts toward the library limit.
+
+Grocery/other bucket lists remember confirmed item names and groups. Restock nudges are opt-in, need at least three distinct purchase dates with consistent intervals, and explicitly say users may still have the item. At most two restock suggestions are generated per day. Budget warning IDs are stable within the budget period to avoid repeated daily delivery. Existing payday/bill reminders are retained. These are email and in-app reminders, not web push notifications.
+
+Goal journals save manually entered city/country, date, optional photo, note, and remembered cost. Journal costs do not change the account balance: users record purchases in Spending. There is no background location tracking.
+
+Calendar forecasts now expose opening balance and all inflows/outflows before closing balance, use the account timezone, and flag cash-buffer shortfalls. Expected income remains a forecast until confirmed.
+
+Validation: TypeScript and production build; billing signature/checkout/access tests; receipt parsing, forecast reconciliation, opt-in/deduplication tests; existing setup tests; synthetic receipt recognized in the actual browser. Live scheduler heartbeat and two accepted Mailgun deliveries were observed. Provider acceptance is not inbox delivery confirmation.
+
+Before broad public launch: complete a real-user trial checkout and return-to-app check (card entry is user-controlled), check reminder inbox delivery, and review public privacy/terms and support details. This release does not claim an end-to-end charged payment has been tested. Supabase RLS continues to isolate records by owner; billing is enforced in Gift's application routes, not by a subscription-aware database policy. Direct Supabase access to a user's own records remains governed by the existing ownership policies.
