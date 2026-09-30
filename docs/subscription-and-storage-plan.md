@@ -1,3 +1,7 @@
+# Current access policy — September 29, 2026
+
+Gift now requires an active Stripe trial or subscription after onboarding, including existing accounts. Billing, export, deletion, and email opt-out remain accessible. See `launch-readiness-20260929.md` for current behavior, validation, and launch checks. Older rollout notes below are historical.
+
 # Current subscription implementation
 
 Gift now offers Stripe-hosted checkout at $5.99/month or $49.99/year, with a 14-day first-subscription trial and card collection upfront. Renewal terms are shown before checkout. Existing budget access remains open until an explicit paywall rollout is authorized. No user is automatically enrolled.
