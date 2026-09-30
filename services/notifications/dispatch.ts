@@ -31,7 +31,13 @@ export async function dispatchReminders(){
      try{
       const current=await db.from('email_recipients').select('enabled').eq('user_id',row.user_id).maybeSingle();check(current.error);
       if(!current.data?.enabled){check((await db.from('email_deliveries').update({status:'failed',payload:{}}).eq('id',id)).error);continue;}
-      const providerId=await sendReminderEmail(payload,config,id);
+      // Re-read just before sending: a user may have recorded a payment while this job ran.
+      const latest=await db.from('financial_profiles').select('data').eq('user_id',row.user_id).maybeSingle();check(latest.error);
+      const latestState=latest.data?.data as FinanceState|undefined;
+      const stillDue=latestState?.reminders?.emailEnabled?dueReminders(latestState).find(r=>r.id===reminder.id):undefined;
+      if(!stillDue){check((await db.from('email_deliveries').update({status:'cancelled',payload:{}}).eq('id',id)).error);continue;}
+      const freshPayload=reminderEmail(stillDue,row.email,config.from,config.origin);
+      const providerId=await sendReminderEmail(freshPayload,config,id);
       check((await db.from('email_deliveries').update({status:'sent',provider_id:providerId,payload:{}}).eq('id',id)).error);accepted++;
      }catch(e){failed++;check((await db.from('email_deliveries').update({status:(e as Error&{retryable?:boolean}).retryable===true?'retry':'failed'}).eq('id',id)).error);}
     }
