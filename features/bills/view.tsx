@@ -11,6 +11,7 @@ import {
   forecastBalance,
 } from "@/services/finance";
 import { Empty, Section } from "@/components/carry/shared";
+import { outstandingUpdates } from "@/services/notifications/follow-ups";
 export default function Bills({
   state,
   open,
@@ -20,6 +21,9 @@ export default function Bills({
 }) {
   const [view, setView] = useState("bills");
   const d = summarize(state);
+  const missedBills = outstandingUpdates(state).filter(
+    (item) => item.kind === "bill",
+  );
   const subs = state.bills.filter((x) => x.subscription && !x.paused);
   const monthly = subs.reduce(
     (a, x) =>
@@ -54,6 +58,35 @@ export default function Bills({
           <TabsTrigger value="calendar">Calendar</TabsTrigger>
         </TabsList>
         <TabsContent value="bills">
+          {missedBills.length > 0 && (
+            <section className="missed-bills" aria-label="Bill updates needed">
+              <span className="eyebrow">A GENTLE CHECK-IN</span>
+              <h2>
+                {missedBills.length === 1
+                  ? "Is this payment all set?"
+                  : `${missedBills.length} payments need a quick update`}
+              </h2>
+              <p>
+                Gift still shows these bills as unpaid. Mark each one paid, or
+                edit its date if the plan changed.
+              </p>
+              <div className="missed-bill-actions">
+                {missedBills.slice(0, 3).map((bill) => (
+                  <button
+                    key={`${bill.id}:${bill.due}`}
+                    onClick={() => open("payBill", `${bill.id}|${bill.due}`)}
+                  >
+                    <span>
+                      <b>{bill.name}</b>
+                      <small>Due {bill.due}</small>
+                    </span>
+                    <strong>{money(bill.amount, 2)}</strong>
+                    <ArrowUpRight size={16} />
+                  </button>
+                ))}
+              </div>
+            </section>
+          )}
           <section className="card spending-total">
             <span className="eyebrow">RESERVED FOR BILLS · NEXT 30 DAYS</span>
             <strong>{money(d.billReserve)}</strong>
