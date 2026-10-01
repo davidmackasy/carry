@@ -434,7 +434,7 @@ export default function Bucket({
         </form>
       </section>
 
-      <section className="card lifestyle-card">
+      <section className="card lifestyle-card shopping-card">
         <h2>Your shopping list</h2>
         <form
           onSubmit={(event) => {
@@ -517,7 +517,7 @@ export default function Bucket({
         )}
       </section>
 
-      <section className="card lifestyle-card">
+      <section className="card lifestyle-card history-card">
         <h2>Purchase history</h2>
         {transactions.slice(0, 20).map((transaction) => (
           <details key={transaction.id}>

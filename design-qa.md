@@ -24,3 +24,14 @@
 - P3: Home summary cards intentionally use an in-card horizontal carousel to preserve readable figures on small screens. This does not widen the document.
 
 Final result: passed
+
+## Mobile section rhythm follow-up
+
+- Rechecked the live production app at 390 × 844 after the section-spacing update.
+- Grocery receipt review, shopping list, and purchase history now have an 18 px gutter, distinct surface colors, soft borders, and restrained elevation.
+- Shopping suggestions render as contained chips, and purchase-history rows have their own inset boundary.
+- Spending, Bills, Goals, and Gift AI use the same mobile card treatment and vertical rhythm.
+- Every checked page remained within the viewport (`documentElement.scrollWidth` and `body.scrollWidth` were 375 px for a 390 px viewport).
+- Browser console verification returned no warnings or errors.
+
+Follow-up result: passed
