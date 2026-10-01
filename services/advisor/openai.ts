@@ -91,7 +91,11 @@ export async function openAIAdvisor(
       body: JSON.stringify({
         model: config.OPENAI_ADVISOR_MODEL ?? "gpt-5",
         store: false,
-        max_output_tokens: 700,
+        // GPT-5's output budget includes reasoning tokens. Keep reasoning light
+        // so a concise user-facing answer is still produced reliably.
+        reasoning: { effort: "minimal" },
+        text: { verbosity: "low" },
+        max_output_tokens: 4_000,
         safety_identifier: await safetyIdentifier(userId),
         instructions:
           "You are Gift Advisor, a warm, practical budgeting assistant. Use only the supplied Gift budget summary for personal claims. Clearly distinguish recorded facts from estimates. Never claim money arrived, a bill was paid, or a transaction occurred unless the summary says so. Do not provide investment, tax, legal, credit, or debt-settlement advice. Do not instruct the user to borrow, gamble, or make a financial product purchase. Give concise, specific next steps and show the relevant dollar figures. If data is missing, say what the user should add to Gift. End material projections with a brief reminder that this is a planning estimate, not financial advice.",

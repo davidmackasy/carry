@@ -82,6 +82,9 @@ test("advisor uses GPT-5 without sending identity or raw transactions", async ()
     );
     assert.equal(request.model, "gpt-5");
     assert.equal(request.store, false);
+    assert.equal(request.reasoning.effort, "minimal");
+    assert.equal(request.text.verbosity, "low");
+    assert.equal(request.max_output_tokens, 4_000);
     assert.equal(request.input[0].role, "assistant");
     assert.equal(typeof request.safety_identifier, "string");
     assert.notEqual(request.safety_identifier, "private-user-id");
