@@ -191,11 +191,14 @@ export default function Carry() {
           <span className="mobile-brand">Gift</span>
           <div className="header-actions">
             <span className="date-label">
-              {new Date().toLocaleDateString("en-US", {
-                weekday: "short",
-                month: "short",
-                day: "numeric",
-              })}
+              <CalendarDays size={14} aria-hidden="true" />
+              <time dateTime={new Date().toISOString()}>
+                {new Date().toLocaleDateString("en-US", {
+                  weekday: "long",
+                  month: "short",
+                  day: "numeric",
+                })}
+              </time>
             </span>
             <button
               className="icon-button notification-button"
