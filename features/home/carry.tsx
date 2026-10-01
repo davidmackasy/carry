@@ -192,9 +192,18 @@ export default function Carry() {
           <div className="header-actions">
             <span className="date-label">
               <CalendarDays size={14} aria-hidden="true" />
-              <time dateTime={new Date().toISOString()}>
+              <time
+                className="date-desktop"
+                dateTime={new Date().toISOString()}
+              >
                 {new Date().toLocaleDateString("en-US", {
                   weekday: "long",
+                  month: "short",
+                  day: "numeric",
+                })}
+              </time>
+              <time className="date-mobile" dateTime={new Date().toISOString()}>
+                {new Date().toLocaleDateString("en-US", {
                   month: "short",
                   day: "numeric",
                 })}
