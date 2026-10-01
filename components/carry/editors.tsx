@@ -1,56 +1,1353 @@
-'use client';
-import {useState} from 'react';
-import Paydays from '@/features/paydays/view';
-import ReminderSettings from '@/features/reminders/settings';
-import {remindersFor} from '@/services/notifications';
-import {Sheet,SheetContent,SheetHeader,SheetTitle,SheetDescription} from '@/components/ui/sheet';
-import {Checkbox} from '@/components/ui/checkbox';
-import {Switch} from '@/components/ui/switch';
-import {AlertDialog,AlertDialogTrigger,AlertDialogContent,AlertDialogHeader,AlertDialogTitle,AlertDialogDescription,AlertDialogFooter,AlertDialogCancel,AlertDialogAction} from '@/components/ui/alert-dialog';
-import {Plus,ArrowRight,Trash2} from 'lucide-react';
-import type {FinanceState,Frequency} from '@/types/finance';
-import {Field,Choice,cents,uid,Empty} from './shared';
-import {money,parseBill,today,addDays,monthDate,summarize,simulatePurchase,calculateRunway,calculateGoalCompletion,advisorAnswer} from '@/services/finance';
-export type Modal={type:string;id?:string}|null;
-type Props={modal:Modal;state:FinanceState;demo:boolean;saving:boolean;error:string;close:()=>void;save:(s:FinanceState,force?:boolean)=>Promise<boolean>;open:(type:string,id?:string)=>void;erase:()=>Promise<void>};
-const names:Record<string,string>={paydays:'Payday & income',reminders:'Payday & bill reminders',transaction:'Record your spending',category:'Your spending bucket',bill:'Add a bill',editBill:'Bill details',payBill:'Bill payment',goal:'Something to save for',contribute:'Add money to your goal',purchase:'Can I afford it?',planner:'Plan your next paycheck',account:'Your accounts',income:'Add income',settings:'Your preferences',notifications:'Your notifications',period:'Your budget period',review:'Your week',search:'Find something',install:'Install Gift'};
-export default function Editors(props:Props){return <Sheet open={!!props.modal} onOpenChange={open=>{if(!open&&!props.saving)props.close()}}><SheetContent side="bottom" className="carry-sheet"><SheetHeader><SheetTitle>{names[props.modal?.type??'']??'Gift'}</SheetTitle><SheetDescription>{props.modal?.type==='purchase'?'Preview only. Your budget changes when you add the planned purchase.':props.demo?'You’re using sample data. Explore freely.':'Changes are saved to your private budget.'}</SheetDescription></SheetHeader>{props.modal&&<EditorBody {...props} key={props.modal.type+(props.modal.id??'')}/>}</SheetContent></Sheet>}
-const FormField=({label,name,value,type='text',required=true}:{label:string;name:string;value?:string|number;type?:string;required?:boolean})=><label className="field"><span>{label}</span><input className="carry-input" name={name} defaultValue={value} type={type} required={required} min={type==='number'?0:undefined} step={type==='number'?'0.01':undefined}/></label>;
-function EditorBody({modal,state,demo,saving,error,close,save,open,erase}:Props){const [localError,setLocalError]=useState('');const [draft,setDraft]=useState('');const [parsed,setParsed]=useState<ReturnType<typeof parseBill>|null>(null);const type=modal!.type,id=modal?.id;const transaction=state.transactions.find(x=>x.id===id);const category=state.categories.find(x=>x.id===id);const bill=state.bills.find(x=>x.id===id?.split('|')[0]);const goal=state.goals.find(x=>x.id===id);const [selectedCategory,setSelectedCategory]=useState(transaction?.categoryId??state.categories[0]?.id??'');const [frequency,setFrequency]=useState<Frequency>(bill?.frequency??'monthly');const [subscription,setSubscription]=useState(bill?.subscription??false);const [paused,setPaused]=useState(bill?.paused??false);const [excluded,setExcluded]=useState(transaction?.excluded??false);const [recurring,setRecurring]=useState(transaction?.recurring??false);const [split,setSplit]=useState(!!transaction?.splits);const [secondCategory,setSecondCategory]=useState(transaction?.splits?.[1]?.categoryId??state.categories[1]?.id??selectedCategory);const [contribution,setContribution]=useState((goal?.contribution??30000)/100);const [price,setPrice]=useState(200);const [purchaseName,setPurchaseName]=useState('');const [purchaseDate,setPurchaseDate]=useState(today(state.timezone));const [allocations,setAllocations]=useState(state.categories.map(c=>c.budget/100));const [goalAllocations,setGoalAllocations]=useState(state.goals.map(g=>g.contribution/100));const [search,setSearch]=useState('');const [settings,setSettings]=useState(state.notificationSettings);const d=summarize(state);async function commit(next:FinanceState){setLocalError('');if(await save(next))close();}
-async function submit(e:React.FormEvent<HTMLFormElement>){e.preventDefault();const f=new FormData(e.currentTarget);try{let next=structuredClone(state);const text=(k:string)=>String(f.get(k)??'').trim();const amount=(k:string)=>{const n=cents(f.get(k));if(!Number.isSafeInteger(n)||n<0)throw new Error('Enter a valid, nonnegative amount.');return n;};if(type==='transaction'){if(!selectedCategory)throw new Error('Create a spending bucket first.');const total=amount('amount');const splits=split?[{categoryId:selectedCategory,amount:amount('firstAmount')},{categoryId:secondCategory,amount:total-amount('firstAmount')}]:undefined;if(splits&&splits.some(x=>x.amount<0))throw new Error('Split amounts must fit within the total.');const row={...transaction,id:transaction?.id??uid(),merchant:text('merchant'),amount:total,date:text('date'),categoryId:selectedCategory,excluded,recurring,note:text('note'),splits};next.transactions=transaction?next.transactions.map(x=>x.id===id?row:x):[row,...next.transactions];if(!transaction){if(!next.accounts.length)throw new Error('Add an account before recording a transaction.');next.accounts[0].balance-=total;}else next.accounts[0].balance+=transaction.amount-total;
-}else if(type==='category'){const row={id:category?.id??uid(),name:text('name'),budget:amount('budget'),icon:'leaf'};next.categories=category?next.categories.map(x=>x.id===id?row:x):[...next.categories,row];
-}else if(type==='bill'){if(!parsed)throw new Error('Parse your bill first.');next.bills.push({...parsed,id:uid(),subscription,paused:false,paidDates:[]});
-}else if(type==='editBill'){if(!bill)return;next.bills=next.bills.map(x=>x.id===bill.id?{...x,name:text('name'),amount:amount('amount'),date:text('date'),frequency,subscription,paused}:x);
-}else if(type==='payBill'){if(!bill)return;const date=id!.split('|')[1];if(!next.accounts.length)throw new Error('Add an account first.');if(bill.paidDates.includes(date))throw new Error('This occurrence has already been paid.');next.bills=next.bills.map(x=>x.id===bill.id?{...x,paidDates:[...x.paidDates,date]}:x);next.accounts[0].balance-=bill.amount;
-}else if(type==='goal'){const row={id:goal?.id??uid(),name:text('name'),icon:text('icon')||'◎',target:amount('target'),saved:amount('saved'),contribution:Math.round(contribution*100),date:text('date'),targetDate:text('targetDate')};if(row.target<=0)throw new Error('Set a target above zero.');next.goals=goal?next.goals.map(x=>x.id===id?row:x):[...next.goals,row];
-}else if(type==='contribute'){if(!goal)return;const value=amount('amount');if(!next.accounts.length||next.accounts[0].balance<value)throw new Error('Your account doesn’t have enough available money for this contribution.');next.goals=next.goals.map(x=>x.id===id?{...x,saved:x.saved+value}:x);next.accounts[0].balance-=value;
-}else if(type==='purchase'){if(price<=0||!Number.isFinite(price))throw new Error('Enter a price above zero.');if(purchaseDate<today(state.timezone))throw new Error('Choose today or a future purchase date.');next.purchases.push({id:uid(),name:purchaseName.trim()||'Planned purchase',amount:Math.round(price*100),date:purchaseDate});
-}else if(type==='planner'){next.categories=next.categories.map((c,i)=>({...c,budget:Math.round(allocations[i]*100)}));next.goals=next.goals.map((g,i)=>({...g,contribution:Math.round(goalAllocations[i]*100)}));
-}else if(type==='account'){const account=state.accounts.find(x=>x.id===id);const row={id:account?.id??uid(),name:text('name'),balance:amount('balance')};next.accounts=account?next.accounts.map(x=>x.id===id?row:x):[...next.accounts,row];
-}else if(type==='income'){const value=amount('amount'),date=text('date');if(!next.accounts.length)throw new Error('Add an account first.');if(date<=today()){next.accounts[0].balance+=value;if(frequency!=='once')next.income.push({id:uid(),name:text('name'),amount:value,date:frequency==='weekly'?addDays(date,7):frequency==='biweekly'?addDays(date,14):frequency==='semimonthly'?addDays(date,15):frequency==='yearly'?monthDate(date,12):monthDate(date,1),frequency});}else next.income.push({id:uid(),name:text('name'),amount:value,date,frequency});
-}else if(type==='period'){next.periodStart=text('start');next.periodEnd=text('end');if(next.periodEnd<next.periodStart)throw new Error('The end date must follow the start date.');
-}else if(type==='settings'){next.name=text('name');next.protectedMinimum=amount('minimum');next.notificationSettings=settings;}
-await commit(next);}catch(e){setLocalError(e instanceof Error?e.message:'Check your entries.')}}
+"use client";
+import { useState } from "react";
+import Paydays from "@/features/paydays/view";
+import ReminderSettings from "@/features/reminders/settings";
+import { remindersFor } from "@/services/notifications";
+import {
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+  SheetDescription,
+} from "@/components/ui/sheet";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Switch } from "@/components/ui/switch";
+import {
+  AlertDialog,
+  AlertDialogTrigger,
+  AlertDialogContent,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogCancel,
+  AlertDialogAction,
+} from "@/components/ui/alert-dialog";
+import { Plus, ArrowRight, Trash2 } from "lucide-react";
+import type { FinanceState, Frequency } from "@/types/finance";
+import { Field, Choice, cents, uid, Empty } from "./shared";
+import {
+  money,
+  parseBill,
+  today,
+  addDays,
+  monthDate,
+  summarize,
+  simulatePurchase,
+  calculateRunway,
+  calculateGoalCompletion,
+  advisorAnswer,
+} from "@/services/finance";
+import {
+  subscriptionCatalog,
+  subscriptionGroups,
+  subscriptionOption,
+} from "@/services/subscriptions/catalog";
+export type Modal = { type: string; id?: string } | null;
+type Props = {
+  modal: Modal;
+  state: FinanceState;
+  demo: boolean;
+  saving: boolean;
+  error: string;
+  close: () => void;
+  save: (s: FinanceState, force?: boolean) => Promise<boolean>;
+  open: (type: string, id?: string) => void;
+  erase: () => Promise<void>;
+};
+const names: Record<string, string> = {
+  paydays: "Payday & income",
+  reminders: "Payday & bill reminders",
+  transaction: "Record your spending",
+  category: "Your spending bucket",
+  bill: "Add a bill",
+  subscription: "Add a subscription",
+  editBill: "Bill details",
+  payBill: "Bill payment",
+  goal: "Something to save for",
+  contribute: "Add money to your goal",
+  purchase: "Can I afford it?",
+  planner: "Plan your next paycheck",
+  account: "Your accounts",
+  income: "Add income",
+  settings: "Your preferences",
+  notifications: "Your notifications",
+  period: "Your budget period",
+  review: "Your week",
+  search: "Find something",
+  install: "Install Gift",
+};
+export default function Editors(props: Props) {
+  return (
+    <Sheet
+      open={!!props.modal}
+      onOpenChange={(open) => {
+        if (!open && !props.saving) props.close();
+      }}
+    >
+      <SheetContent side="bottom" className="carry-sheet">
+        <SheetHeader>
+          <SheetTitle>{names[props.modal?.type ?? ""] ?? "Gift"}</SheetTitle>
+          <SheetDescription>
+            {props.modal?.type === "purchase"
+              ? "Preview only. Your budget changes when you add the planned purchase."
+              : props.demo
+                ? "You’re using sample data. Explore freely."
+                : "Changes are saved to your private budget."}
+          </SheetDescription>
+        </SheetHeader>
+        {props.modal && (
+          <EditorBody
+            {...props}
+            key={props.modal.type + (props.modal.id ?? "")}
+          />
+        )}
+      </SheetContent>
+    </Sheet>
+  );
+}
+const FormField = ({
+  label,
+  name,
+  value,
+  type = "text",
+  required = true,
+}: {
+  label: string;
+  name: string;
+  value?: string | number;
+  type?: string;
+  required?: boolean;
+}) => (
+  <label className="field">
+    <span>{label}</span>
+    <input
+      className="carry-input"
+      name={name}
+      defaultValue={value}
+      type={type}
+      required={required}
+      min={type === "number" ? 0 : undefined}
+      step={type === "number" ? "0.01" : undefined}
+    />
+  </label>
+);
+function EditorBody({
+  modal,
+  state,
+  demo,
+  saving,
+  error,
+  close,
+  save,
+  open,
+  erase,
+}: Props) {
+  const [localError, setLocalError] = useState("");
+  const [draft, setDraft] = useState("");
+  const [parsed, setParsed] = useState<ReturnType<typeof parseBill> | null>(
+    null,
+  );
+  const type = modal!.type,
+    id = modal?.id;
+  const transaction = state.transactions.find((x) => x.id === id);
+  const category = state.categories.find((x) => x.id === id);
+  const bill = state.bills.find((x) => x.id === id?.split("|")[0]);
+  const goal = state.goals.find((x) => x.id === id);
+  const [selectedCategory, setSelectedCategory] = useState(
+    transaction?.categoryId ?? state.categories[0]?.id ?? "",
+  );
+  const [frequency, setFrequency] = useState<Frequency>(
+    bill?.frequency ?? "monthly",
+  );
+  const [selectedSubscription, setSelectedSubscription] = useState("");
+  const [subscription, setSubscription] = useState(bill?.subscription ?? false);
+  const [paused, setPaused] = useState(bill?.paused ?? false);
+  const [excluded, setExcluded] = useState(transaction?.excluded ?? false);
+  const [recurring, setRecurring] = useState(transaction?.recurring ?? false);
+  const [split, setSplit] = useState(!!transaction?.splits);
+  const [secondCategory, setSecondCategory] = useState(
+    transaction?.splits?.[1]?.categoryId ??
+      state.categories[1]?.id ??
+      selectedCategory,
+  );
+  const [contribution, setContribution] = useState(
+    (goal?.contribution ?? 30000) / 100,
+  );
+  const [price, setPrice] = useState(200);
+  const [purchaseName, setPurchaseName] = useState("");
+  const [purchaseDate, setPurchaseDate] = useState(today(state.timezone));
+  const [allocations, setAllocations] = useState(
+    state.categories.map((c) => c.budget / 100),
+  );
+  const [goalAllocations, setGoalAllocations] = useState(
+    state.goals.map((g) => g.contribution / 100),
+  );
+  const [search, setSearch] = useState("");
+  const [settings, setSettings] = useState(state.notificationSettings);
+  const d = summarize(state);
+  async function commit(next: FinanceState) {
+    setLocalError("");
+    if (await save(next)) close();
+  }
+  async function submit(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    const f = new FormData(e.currentTarget);
+    try {
+      let next = structuredClone(state);
+      const text = (k: string) => String(f.get(k) ?? "").trim();
+      const amount = (k: string) => {
+        const n = cents(f.get(k));
+        if (!Number.isSafeInteger(n) || n < 0)
+          throw new Error("Enter a valid, nonnegative amount.");
+        return n;
+      };
+      if (type === "transaction") {
+        if (!selectedCategory)
+          throw new Error("Create a spending bucket first.");
+        const total = amount("amount");
+        const splits = split
+          ? [
+              { categoryId: selectedCategory, amount: amount("firstAmount") },
+              {
+                categoryId: secondCategory,
+                amount: total - amount("firstAmount"),
+              },
+            ]
+          : undefined;
+        if (splits && splits.some((x) => x.amount < 0))
+          throw new Error("Split amounts must fit within the total.");
+        const row = {
+          ...transaction,
+          id: transaction?.id ?? uid(),
+          merchant: text("merchant"),
+          amount: total,
+          date: text("date"),
+          categoryId: selectedCategory,
+          excluded,
+          recurring,
+          note: text("note"),
+          splits,
+        };
+        next.transactions = transaction
+          ? next.transactions.map((x) => (x.id === id ? row : x))
+          : [row, ...next.transactions];
+        if (!transaction) {
+          if (!next.accounts.length)
+            throw new Error("Add an account before recording a transaction.");
+          next.accounts[0].balance -= total;
+        } else next.accounts[0].balance += transaction.amount - total;
+      } else if (type === "category") {
+        const row = {
+          id: category?.id ?? uid(),
+          name: text("name"),
+          budget: amount("budget"),
+          icon: "leaf",
+        };
+        next.categories = category
+          ? next.categories.map((x) => (x.id === id ? row : x))
+          : [...next.categories, row];
+      } else if (type === "bill") {
+        if (!parsed) throw new Error("Parse your bill first.");
+        next.bills.push({
+          ...parsed,
+          id: uid(),
+          subscription,
+          paused: false,
+          paidDates: [],
+        });
+        next.reminders = {
+          ...(next.reminders ?? {
+            paydayEnabled: true,
+            paydayDays: 2,
+            billsEnabled: true,
+            billDays: 3,
+            emailEnabled: false,
+            sendHour: 9,
+          }),
+          billsEnabled: true,
+        };
+        next.notificationSettings.bills = true;
+      } else if (type === "subscription") {
+        const selected = text("service"),
+          name =
+            selected === "custom"
+              ? text("customName")
+              : subscriptionOption(selected)?.name;
+        if (!name) throw new Error("Choose a service or enter its name.");
+        const price = amount("amount");
+        if (price <= 0) throw new Error("Enter the amount this service charges.");
+        const nextCharge = text("date");
+        if (!/^\d{4}-\d{2}-\d{2}$/.test(nextCharge))
+          throw new Error("Choose the next charge date.");
+        if (
+          next.bills.some(
+            (b) =>
+              !b.paused &&
+              b.subscription &&
+              b.name.toLowerCase() === name.toLowerCase(),
+          )
+        )
+          throw new Error(`${name} is already being tracked.`);
+        next.bills.push({
+          id: uid(),
+          name,
+          amount: price,
+          date: nextCharge,
+          frequency,
+          subscription: true,
+          paused: false,
+          paidDates: [],
+        });
+        next.reminders = {
+          ...(next.reminders ?? {
+            paydayEnabled: true,
+            paydayDays: 2,
+            billsEnabled: true,
+            billDays: 3,
+            emailEnabled: false,
+            sendHour: 9,
+          }),
+          billsEnabled: true,
+        };
+        next.notificationSettings.bills = true;
+      } else if (type === "editBill") {
+        if (!bill) return;
+        next.bills = next.bills.map((x) =>
+          x.id === bill.id
+            ? {
+                ...x,
+                name: text("name"),
+                amount: amount("amount"),
+                date: text("date"),
+                frequency,
+                subscription,
+                paused,
+              }
+            : x,
+        );
+      } else if (type === "payBill") {
+        if (!bill) return;
+        const date = id!.split("|")[1];
+        if (!next.accounts.length) throw new Error("Add an account first.");
+        if (bill.paidDates.includes(date))
+          throw new Error("This occurrence has already been paid.");
+        next.bills = next.bills.map((x) =>
+          x.id === bill.id ? { ...x, paidDates: [...x.paidDates, date] } : x,
+        );
+        next.accounts[0].balance -= bill.amount;
+      } else if (type === "goal") {
+        const row = {
+          id: goal?.id ?? uid(),
+          name: text("name"),
+          icon: text("icon") || "◎",
+          target: amount("target"),
+          saved: amount("saved"),
+          contribution: Math.round(contribution * 100),
+          date: text("date"),
+          targetDate: text("targetDate"),
+        };
+        if (row.target <= 0) throw new Error("Set a target above zero.");
+        next.goals = goal
+          ? next.goals.map((x) => (x.id === id ? row : x))
+          : [...next.goals, row];
+      } else if (type === "contribute") {
+        if (!goal) return;
+        const value = amount("amount");
+        if (!next.accounts.length || next.accounts[0].balance < value)
+          throw new Error(
+            "Your account doesn’t have enough available money for this contribution.",
+          );
+        next.goals = next.goals.map((x) =>
+          x.id === id ? { ...x, saved: x.saved + value } : x,
+        );
+        next.accounts[0].balance -= value;
+      } else if (type === "purchase") {
+        if (price <= 0 || !Number.isFinite(price))
+          throw new Error("Enter a price above zero.");
+        if (purchaseDate < today(state.timezone))
+          throw new Error("Choose today or a future purchase date.");
+        next.purchases.push({
+          id: uid(),
+          name: purchaseName.trim() || "Planned purchase",
+          amount: Math.round(price * 100),
+          date: purchaseDate,
+        });
+      } else if (type === "planner") {
+        next.categories = next.categories.map((c, i) => ({
+          ...c,
+          budget: Math.round(allocations[i] * 100),
+        }));
+        next.goals = next.goals.map((g, i) => ({
+          ...g,
+          contribution: Math.round(goalAllocations[i] * 100),
+        }));
+      } else if (type === "account") {
+        const account = state.accounts.find((x) => x.id === id);
+        const row = {
+          id: account?.id ?? uid(),
+          name: text("name"),
+          balance: amount("balance"),
+        };
+        next.accounts = account
+          ? next.accounts.map((x) => (x.id === id ? row : x))
+          : [...next.accounts, row];
+      } else if (type === "income") {
+        const value = amount("amount"),
+          date = text("date");
+        if (!next.accounts.length) throw new Error("Add an account first.");
+        if (date <= today()) {
+          next.accounts[0].balance += value;
+          if (frequency !== "once")
+            next.income.push({
+              id: uid(),
+              name: text("name"),
+              amount: value,
+              date:
+                frequency === "weekly"
+                  ? addDays(date, 7)
+                  : frequency === "biweekly"
+                    ? addDays(date, 14)
+                    : frequency === "semimonthly"
+                      ? addDays(date, 15)
+                      : frequency === "yearly"
+                        ? monthDate(date, 12)
+                        : monthDate(date, 1),
+              frequency,
+            });
+        } else
+          next.income.push({
+            id: uid(),
+            name: text("name"),
+            amount: value,
+            date,
+            frequency,
+          });
+      } else if (type === "period") {
+        next.periodStart = text("start");
+        next.periodEnd = text("end");
+        if (next.periodEnd < next.periodStart)
+          throw new Error("The end date must follow the start date.");
+      } else if (type === "settings") {
+        next.name = text("name");
+        next.protectedMinimum = amount("minimum");
+        next.notificationSettings = settings;
+      }
+      await commit(next);
+    } catch (e) {
+      setLocalError(e instanceof Error ? e.message : "Check your entries.");
+    }
+  }
 
-const toggle=(label:string,checked:boolean,change:(v:boolean)=>void)=><label className="toggle-row"><Checkbox checked={checked} onCheckedChange={v=>change(v===true)}/>{label}</label>;
-const frequencyChoice=<Choice label="Repeats" value={frequency} onChange={v=>setFrequency(v as Frequency)} options={[{value:'once',label:'Once'},{value:'weekly',label:'Weekly'},{value:'biweekly',label:'Every two weeks'},{value:'semimonthly',label:'1st and 15th'},{value:'monthly',label:'Monthly'},{value:'yearly',label:'Yearly'}]}/>;
-if(type==='paydays')return <Paydays state={state} save={save} saving={saving} open={open}/>;if(type==='reminders')return <ReminderSettings state={state} save={save} saving={saving}/>;
-if(type==='notifications'){const reminderNotices=remindersFor(state).filter(r=>r.notifyDate<=today(state.timezone)).map(r=>({title:r.title,body:r.body}));const notices=[...reminderNotices,...(settings.budget?d.categories.filter(c=>c.ratio>=.9).map(c=>({title:`${c.name} is nearly used up`,body:`${money(c.remaining)} remaining this period.`})):[]),...(settings.goals?state.goals.filter(g=>g.saved/g.target>=.75).map(g=>({title:`${g.name} is getting closer`,body:`${Math.floor(g.saved/g.target*100)}% of your target saved.`})):[])];return <div className="sheet-body">{notices.map((n,i)=><div className="notification" key={i}><h3>{n.title}</h3><p>{n.body}</p></div>)}{!notices.length&&<Empty title="You’re all caught up">No bills, budget warnings, or goal milestones need your attention.</Empty>}<button className="secondary" onClick={()=>open('paydays')}>Review unconfirmed paychecks</button><a className="secondary" href="/?view=Bills">Review unpaid bills</a><button className="secondary" onClick={()=>open('reminders')}>Payday & bill reminder settings</button></div>}
-if(type==='review'){const start=addDays(today(),-6),spent=state.transactions.filter(t=>!t.excluded&&t.date>=start&&t.date<=today()).reduce((a,t)=>a+t.amount,0),planned=d.daily*7;return <div className="sheet-body"><span className="eyebrow">LAST SEVEN DAYS</span><div className="review-grid"><div>You spent<strong>{money(spent)}</strong></div><div>Planned<strong>{money(planned)}</strong></div><div>{spent<=planned?'Under plan':'Over plan'}<strong>{money(Math.abs(planned-spent))}</strong></div><div>Current runway<strong>{d.runway.days}{d.runway.capped?'+':''} days</strong></div></div><p className="subtle">Next 7 days: {money(d.bills.filter(b=>b.days<7).reduce((a,b)=>a+b.amount,0))} in bills.</p></div>}
-if(type==='search'){const results=[...state.transactions.map(x=>({name:x.merchant,type:'transaction',id:x.id})),...state.bills.map(x=>({name:x.name,type:'editBill',id:x.id})),...state.goals.map(x=>({name:x.name,type:'goal',id:x.id})),...state.categories.map(x=>({name:x.name,type:'category',id:x.id}))].filter(x=>x.name.toLowerCase().includes(search.toLowerCase()));return <div className="sheet-body"><Field label="Search your money" value={search} onChange={setSearch}/>{results.slice(0,30).map((x,i)=><button className="list-row full-row" key={x.id+i} onClick={()=>open(x.type,x.id)}><span className="row-copy"><b>{x.name}</b><small>{x.type}</small></span><ArrowRight size={16}/></button>)}{!results.length&&<Empty title="No matches">Try a merchant, bill, bucket, or goal name.</Empty>}</div>}
-if(type==='install')return <div className="sheet-body"><p>On iPhone, open Gift in Safari, tap Share, then “Add to Home Screen.”</p><p>On Android or desktop Chrome, use the browser menu and select “Install app.”</p><p className="subtle">Gift includes a standalone app shell. Saved financial data requires a connection; it is not cached on shared devices.</p></div>;
-return <form className="sheet-body" onSubmit={submit}>
-{type==='transaction'&&<>{!state.categories.length?<Empty title="Create a bucket first" action="Add bucket" onAction={()=>open('category')}>Spending needs a budget category.</Empty>:<><FormField label="Merchant" name="merchant" value={transaction?.merchant}/><div className="form-grid"><FormField label="Amount ($)" name="amount" type="number" value={transaction?(transaction.amount/100):undefined}/><FormField label="Date" name="date" type="date" value={transaction?.date??today()}/></div><Choice label="Category" value={selectedCategory} onChange={setSelectedCategory} options={state.categories.map(c=>({value:c.id,label:c.name}))}/>{toggle('Split between categories',split,setSplit)}{split&&<><FormField label="Amount in first category ($)" name="firstAmount" type="number" value={(transaction?.splits?.[0]?.amount??0)/100}/><Choice label="Remaining amount goes to" value={secondCategory} onChange={setSecondCategory} options={state.categories.map(c=>({value:c.id,label:c.name}))}/></>}{toggle('Exclude from budget',excluded,setExcluded)}{toggle('Mark recurring',recurring,setRecurring)}<FormField label="Note" name="note" value={transaction?.note} required={false}/><p className="subtle">Recorded spending is deducted from {state.accounts[0]?.name??'your first account'}. Recurring is a label; future spending is not automatically recorded.</p></>}</>}
-{type==='category'&&<><FormField label="Bucket name" name="name" value={category?.name}/><FormField label="Budget for this period ($)" name="budget" type="number" value={(category?.budget??0)/100}/></>}
-{type==='bill'&&<><label className="field"><span>Tell us about your bill</span><textarea className="carry-input" value={draft} onChange={e=>{setDraft(e.target.value);setParsed(null)}} placeholder="Rent is $1,200 on the 1st every month." rows={3}/></label><button type="button" className="secondary" onClick={()=>{try{setParsed(parseBill(draft));setLocalError('')}catch(e){setLocalError((e as Error).message)}}}>Review bill <ArrowRight size={16}/></button>{parsed&&<div className="insight-box"><h3>{parsed.name}</h3><strong>{money(parsed.amount,2)}</strong><p>Monthly · Next due {parsed.date}</p><p className="subtle">Confirm these details before saving. You can edit the schedule after adding.</p></div>}{toggle('This is a subscription',subscription,setSubscription)}</>}
-{type==='editBill'&&bill&&<><FormField label="Bill name" name="name" value={bill.name}/><FormField label="Amount ($)" name="amount" value={bill.amount/100} type="number"/><FormField label="Next due date" name="date" type="date" value={bill.date}/>{frequencyChoice}{toggle('Subscription',subscription,setSubscription)}{toggle('Pause this bill',paused,setPaused)}</>}
-{type==='payBill'&&bill&&<><div className="insight-box"><h3>{bill.name}</h3><strong>{money(bill.amount,2)}</strong><p>Due {id?.split('|')[1]}</p></div><p className="subtle">Marking this paid deducts {money(bill.amount)} from {state.accounts[0]?.name??'your account'}. This records a payment you’ve already made; it does not transfer money.</p><button type="button" className="text-action" onClick={()=>open('editBill',bill.id)}>Edit bill details</button></>}
-{type==='goal'&&<><div className="form-grid"><FormField label="Goal name" name="name" value={goal?.name}/><FormField label="Icon" name="icon" value={goal?.icon??'✈'} required={false}/></div><div className="form-grid"><FormField label="Target ($)" name="target" type="number" value={(goal?.target??500000)/100}/><FormField label="Already saved ($)" name="saved" type="number" value={(goal?.saved??0)/100}/></div><p className="subtle">Already-saved money is held outside your available accounts. Adding it here doesn’t deduct it again.</p><Field label="Monthly contribution ($)" type="number" value={contribution} onChange={v=>setContribution(Number(v))} min={0}/><div className="form-grid"><FormField label="Next contribution" name="date" type="date" value={goal?.date??addDays(today(),7)}/><FormField label="Target date" name="targetDate" type="date" value={goal?.targetDate??monthDate(today(),12)}/></div>{goal&&<div className="insight-box"><span>IF YOU CHANGE THIS</span><p>Monthly free spending changes by {money(goal.contribution-Math.round(contribution*100))}.</p><p>Runway: {d.runway.days}{d.runway.capped?'+':''} → {calculateRunway({...state,goals:state.goals.map(g=>g.id===goal.id?{...g,contribution:Math.round(contribution*100)}:g)}).days} days.</p><p>Estimated completion: {calculateGoalCompletion({...goal,contribution:Math.round(contribution*100)}).date??'Set a contribution'}.</p></div>}</>}
-{type==='contribute'&&goal&&<><h3>{goal.name}</h3><FormField label="Amount to move into savings ($)" name="amount" type="number"/><p className="subtle">This records a transfer from your available balance into your goal. No automatic bank transfer is made.</p></>}
-{type==='purchase'&&<><Field label="What do you have in mind?" value={purchaseName} onChange={setPurchaseName} required={false}/><Field label="Price ($)" type="number" value={price} onChange={v=>setPrice(Number(v))} min={.01} step=".01"/><Field label="Planned purchase date" type="date" value={purchaseDate} onChange={setPurchaseDate} min={today(state.timezone)}/>{(()=>{const sim=simulatePurchase(state,Math.round(Math.max(0,price)*100),today(state.timezone),purchaseDate);return <div className="insight-box"><span className="eyebrow">{purchaseDate===today(state.timezone)?'IF YOU BUY THIS TODAY':`IF YOU BUY ON ${purchaseDate}`}</span><div className="review-grid"><div>Current runway<strong>{sim.before.days}{sim.before.capped?'+':''} days</strong></div><div>After purchase<strong>{sim.after.days}{sim.after.capped?'+':''} days</strong></div></div><div className="breakdown-row"><span>Bills before payday covered</span><b>{sim.billsCovered?'Yes':'Not fully'}</b></div><div className="breakdown-row"><span>Remaining safe today</span><b>{money(sim.safeBefore)} → {money(sim.safeAfter)}</b></div><div className="breakdown-row"><span>Projected cash on purchase day</span><b>{sim.withinForecast?`${money(sim.beforeCash!)} → ${money(sim.afterCash!)}`:'Outside forecast'}</b></div><div className="breakdown-row"><span>Lowest cushion above your buffer · 180 days</span><b>{money(sim.lowestBefore)} → {money(sim.lowestAfter)}</b></div><p className="subtle">{!sim.withinForecast?'Choose a date within the next 180 days to see the purchase impact.':sim.before.capped&&sim.after.capped?'Both plans stay above your buffer throughout the 180-day forecast. The purchase still reduces your projected cash; 180+ is a limit, not an exact end date.':sim.before.capped?`Your current plan lasts at least 180 days. With this purchase, it reaches your buffer in ${sim.after.days} days.`:`This uses approximately ${Math.max(0,sim.before.days-sim.after.days)} days of your forecast.`}</p>{sim.safeBefore===sim.safeAfter&&<p className="subtle">Today’s allowance can stay the same when your spending budget sets the limit, or the purchase falls after your next payday.</p>}</div>})()}</>}
-{type==='planner'&&<><div className="insight-box"><span className="eyebrow">NEXT PAYCHECK</span><strong>{money(d.payday?.amount??0)}</strong><p>{d.payday?`Expected ${d.payday.date}`:'Add an income schedule first.'}</p></div><div className="breakdown-row"><span>Bills · next 30 days</span><b>{money(d.billReserve)}</b></div>{state.categories.map((c,i)=><Field key={c.id} label={c.name+' ($ / budget period)'} value={allocations[i]} type="number" min={0} onChange={v=>setAllocations(a=>a.map((x,j)=>j===i?Number(v):x))}/>)}{state.goals.map((g,i)=><Field key={g.id} label={g.name+' ($ / month)'} value={goalAllocations[i]} type="number" min={0} onChange={v=>setGoalAllocations(a=>a.map((x,j)=>j===i?Number(v):x))}/>)}<div className="insight-box"><p>After these allocations: {money((d.payday?.amount??0)-d.billReserve-allocations.reduce((a,b)=>a+b,0)*100-goalAllocations.reduce((a,b)=>a+b,0)*100)}</p><p>Projected runway: {calculateRunway({...state,categories:state.categories.map((c,i)=>({...c,budget:Math.round(allocations[i]*100)})),goals:state.goals.map((g,i)=>({...g,contribution:Math.round(goalAllocations[i]*100)}))}).days} days</p><span className="subtle">Updates your budget limits and monthly savings plan. Income is not recorded again.</span></div></>}
-{type==='account'&&<><FormField label="Account name" name="name" value={state.accounts.find(x=>x.id===id)?.name??'Everyday checking'}/><FormField label="Available balance ($)" name="balance" type="number" value={id?(state.accounts.find(x=>x.id===id)?.balance??0)/100:undefined}/><p className="subtle">Use money that is available now. Keep goal savings separate from this balance.</p>{state.accounts.map(a=><button type="button" className="list-row full-row" key={a.id} onClick={()=>open('account',a.id)}><span className="row-copy"><b>{a.name}</b></span><b>{money(a.balance)}</b></button>)}</>}
-{type==='income'&&<><FormField label="Income source" name="name" value="Paycheck"/><FormField label="Amount ($)" name="amount" type="number"/><FormField label="Arrival date" name="date" type="date" value={today()}/>{frequencyChoice}<p className="subtle">Income dated today or earlier is added to your available balance. Future income affects your forecast.</p><div className="section-heading"><h3>Scheduled income</h3></div>{state.income.map(x=><div className="breakdown-row" key={x.id}><span>{x.name}<small>{x.date} · {x.frequency}</small></span><b>{money(x.amount)}</b><button type="button" aria-label={'Remove '+x.name} className="icon-button" onClick={()=>commit({...state,income:state.income.filter(i=>i.id!==x.id)})}><Trash2 size={15}/></button></div>)}</>}
-{type==='period'&&<><FormField label="Start" name="start" type="date" value={state.periodStart}/><FormField label="End" name="end" type="date" value={state.periodEnd}/></>}
-{type==='settings'&&<><a className="secondary" href="/billing">Subscription &amp; billing</a><a className="secondary" href="/import">Import an existing budget</a><a className="secondary" href="/auth/signout">Sign out</a><button type="button" className="secondary" onClick={()=>open('setup')}>Review guided account setup</button><button type="button" className="secondary" onClick={()=>open('paydays')}>Payday & income</button><button type="button" className="secondary" onClick={()=>open('reminders')}>Payday & bill reminders</button><FormField label="Your name" name="name" value={state.name}/><FormField label="Protected minimum balance ($)" name="minimum" type="number" value={state.protectedMinimum/100}/><p className="subtle">Your runway ends when projected cash reaches this buffer.</p>{Object.entries(settings).map(([key,value])=><label className="toggle-row between" key={key}>{key==='bills'?'Upcoming bill notices':key==='budget'?'Budget warnings':'Goal milestones'}<Switch checked={value} onCheckedChange={v=>setSettings({...settings,[key]:v})}/></label>)}<button type="button" className="secondary" onClick={()=>open('install')}>Install Gift</button><button type="button" className="secondary" onClick={()=>{const blob=new Blob([JSON.stringify(state,null,2)],{type:'application/json'});const url=URL.createObjectURL(blob);const a=document.createElement('a');a.href=url;a.download='gift-budget.json';a.click();URL.revokeObjectURL(url)}}>Export my data</button><AlertDialog><AlertDialogTrigger asChild><button type="button" className="danger-link">Delete all my financial data</button></AlertDialogTrigger><AlertDialogContent><AlertDialogHeader><AlertDialogTitle>Delete your Gift data?</AlertDialogTitle><AlertDialogDescription>This permanently removes your accounts, transactions, bills, goals, and snapshots. Export a copy first if you need it. Deleting budget data does not cancel your subscription. Manage it under Subscription &amp; billing.</AlertDialogDescription></AlertDialogHeader><AlertDialogFooter><AlertDialogCancel>Keep my data</AlertDialogCancel><AlertDialogAction onClick={()=>void erase()}>Delete my data</AlertDialogAction></AlertDialogFooter></AlertDialogContent></AlertDialog></>}
-{(localError||error)&&<p role="alert" className="error-message">{localError||error}</p>}<button className="primary wide" disabled={saving||(type==='bill'&&!parsed)||(type==='transaction'&&!state.categories.length)}>{saving?'Saving…':type==='payBill'?'Mark as paid':type==='purchase'?'Add planned purchase':type==='planner'?'Apply this plan':'Save changes'}<ArrowRight size={17}/></button></form>}
+  const toggle = (
+    label: string,
+    checked: boolean,
+    change: (v: boolean) => void,
+  ) => (
+    <label className="toggle-row">
+      <Checkbox checked={checked} onCheckedChange={(v) => change(v === true)} />
+      {label}
+    </label>
+  );
+  const frequencyChoice = (
+    <Choice
+      label="Repeats"
+      value={frequency}
+      onChange={(v) => setFrequency(v as Frequency)}
+      options={[
+        { value: "once", label: "Once" },
+        { value: "weekly", label: "Weekly" },
+        { value: "biweekly", label: "Every two weeks" },
+        { value: "semimonthly", label: "1st and 15th" },
+        { value: "monthly", label: "Monthly" },
+        { value: "yearly", label: "Yearly" },
+      ]}
+    />
+  );
+  if (type === "paydays")
+    return <Paydays state={state} save={save} saving={saving} open={open} />;
+  if (type === "reminders")
+    return <ReminderSettings state={state} save={save} saving={saving} />;
+  if (type === "notifications") {
+    const reminderNotices = remindersFor(state)
+      .filter((r) => r.notifyDate <= today(state.timezone))
+      .map((r) => ({ title: r.title, body: r.body }));
+    const notices = [
+      ...reminderNotices,
+      ...(settings.budget
+        ? d.categories
+            .filter((c) => c.ratio >= 0.9)
+            .map((c) => ({
+              title: `${c.name} is nearly used up`,
+              body: `${money(c.remaining)} remaining this period.`,
+            }))
+        : []),
+      ...(settings.goals
+        ? state.goals
+            .filter((g) => g.saved / g.target >= 0.75)
+            .map((g) => ({
+              title: `${g.name} is getting closer`,
+              body: `${Math.floor((g.saved / g.target) * 100)}% of your target saved.`,
+            }))
+        : []),
+    ];
+    return (
+      <div className="sheet-body">
+        {notices.map((n, i) => (
+          <div className="notification" key={i}>
+            <h3>{n.title}</h3>
+            <p>{n.body}</p>
+          </div>
+        ))}
+        {!notices.length && (
+          <Empty title="You’re all caught up">
+            No bills, budget warnings, or goal milestones need your attention.
+          </Empty>
+        )}
+        <button className="secondary" onClick={() => open("paydays")}>
+          Review unconfirmed paychecks
+        </button>
+        <a className="secondary" href="/?view=Bills">
+          Review unpaid bills
+        </a>
+        <button className="secondary" onClick={() => open("reminders")}>
+          Payday & bill reminder settings
+        </button>
+      </div>
+    );
+  }
+  if (type === "review") {
+    const start = addDays(today(), -6),
+      spent = state.transactions
+        .filter((t) => !t.excluded && t.date >= start && t.date <= today())
+        .reduce((a, t) => a + t.amount, 0),
+      planned = d.daily * 7;
+    return (
+      <div className="sheet-body">
+        <span className="eyebrow">LAST SEVEN DAYS</span>
+        <div className="review-grid">
+          <div>
+            You spent<strong>{money(spent)}</strong>
+          </div>
+          <div>
+            Planned<strong>{money(planned)}</strong>
+          </div>
+          <div>
+            {spent <= planned ? "Under plan" : "Over plan"}
+            <strong>{money(Math.abs(planned - spent))}</strong>
+          </div>
+          <div>
+            Current runway
+            <strong>
+              {d.runway.days}
+              {d.runway.capped ? "+" : ""} days
+            </strong>
+          </div>
+        </div>
+        <p className="subtle">
+          Next 7 days:{" "}
+          {money(
+            d.bills.filter((b) => b.days < 7).reduce((a, b) => a + b.amount, 0),
+          )}{" "}
+          in bills.
+        </p>
+      </div>
+    );
+  }
+  if (type === "search") {
+    const results = [
+      ...state.transactions.map((x) => ({
+        name: x.merchant,
+        type: "transaction",
+        id: x.id,
+      })),
+      ...state.bills.map((x) => ({ name: x.name, type: "editBill", id: x.id })),
+      ...state.goals.map((x) => ({ name: x.name, type: "goal", id: x.id })),
+      ...state.categories.map((x) => ({
+        name: x.name,
+        type: "category",
+        id: x.id,
+      })),
+    ].filter((x) => x.name.toLowerCase().includes(search.toLowerCase()));
+    return (
+      <div className="sheet-body">
+        <Field label="Search your money" value={search} onChange={setSearch} />
+        {results.slice(0, 30).map((x, i) => (
+          <button
+            className="list-row full-row"
+            key={x.id + i}
+            onClick={() => open(x.type, x.id)}
+          >
+            <span className="row-copy">
+              <b>{x.name}</b>
+              <small>{x.type}</small>
+            </span>
+            <ArrowRight size={16} />
+          </button>
+        ))}
+        {!results.length && (
+          <Empty title="No matches">
+            Try a merchant, bill, bucket, or goal name.
+          </Empty>
+        )}
+      </div>
+    );
+  }
+  if (type === "install")
+    return (
+      <div className="sheet-body">
+        <p>
+          On iPhone, open Gift in Safari, tap Share, then “Add to Home Screen.”
+        </p>
+        <p>
+          On Android or desktop Chrome, use the browser menu and select “Install
+          app.”
+        </p>
+        <p className="subtle">
+          Gift includes a standalone app shell. Saved financial data requires a
+          connection; it is not cached on shared devices.
+        </p>
+      </div>
+    );
+  return (
+    <form className="sheet-body" onSubmit={submit}>
+      {type === "transaction" && (
+        <>
+          {!state.categories.length ? (
+            <Empty
+              title="Create a bucket first"
+              action="Add bucket"
+              onAction={() => open("category")}
+            >
+              Spending needs a budget category.
+            </Empty>
+          ) : (
+            <>
+              <FormField
+                label="Merchant"
+                name="merchant"
+                value={transaction?.merchant}
+              />
+              <div className="form-grid">
+                <FormField
+                  label="Amount ($)"
+                  name="amount"
+                  type="number"
+                  value={transaction ? transaction.amount / 100 : undefined}
+                />
+                <FormField
+                  label="Date"
+                  name="date"
+                  type="date"
+                  value={transaction?.date ?? today()}
+                />
+              </div>
+              <Choice
+                label="Category"
+                value={selectedCategory}
+                onChange={setSelectedCategory}
+                options={state.categories.map((c) => ({
+                  value: c.id,
+                  label: c.name,
+                }))}
+              />
+              {toggle("Split between categories", split, setSplit)}
+              {split && (
+                <>
+                  <FormField
+                    label="Amount in first category ($)"
+                    name="firstAmount"
+                    type="number"
+                    value={(transaction?.splits?.[0]?.amount ?? 0) / 100}
+                  />
+                  <Choice
+                    label="Remaining amount goes to"
+                    value={secondCategory}
+                    onChange={setSecondCategory}
+                    options={state.categories.map((c) => ({
+                      value: c.id,
+                      label: c.name,
+                    }))}
+                  />
+                </>
+              )}
+              {toggle("Exclude from budget", excluded, setExcluded)}
+              {toggle("Mark recurring", recurring, setRecurring)}
+              <FormField
+                label="Note"
+                name="note"
+                value={transaction?.note}
+                required={false}
+              />
+              <p className="subtle">
+                Recorded spending is deducted from{" "}
+                {state.accounts[0]?.name ?? "your first account"}. Recurring is
+                a label; future spending is not automatically recorded.
+              </p>
+            </>
+          )}
+        </>
+      )}
+      {type === "category" && (
+        <>
+          <FormField label="Bucket name" name="name" value={category?.name} />
+          <FormField
+            label="Budget for this period ($)"
+            name="budget"
+            type="number"
+            value={(category?.budget ?? 0) / 100}
+          />
+        </>
+      )}
+      {type === "bill" && (
+        <>
+          <label className="field">
+            <span>Tell us about your bill</span>
+            <textarea
+              className="carry-input"
+              value={draft}
+              onChange={(e) => {
+                setDraft(e.target.value);
+                setParsed(null);
+              }}
+              placeholder="Rent is $1,200 on the 1st every month."
+              rows={3}
+            />
+          </label>
+          <button
+            type="button"
+            className="secondary"
+            onClick={() => {
+              try {
+                setParsed(parseBill(draft));
+                setLocalError("");
+              } catch (e) {
+                setLocalError((e as Error).message);
+              }
+            }}
+          >
+            Review bill <ArrowRight size={16} />
+          </button>
+          {parsed && (
+            <div className="insight-box">
+              <h3>{parsed.name}</h3>
+              <strong>{money(parsed.amount, 2)}</strong>
+              <p>Monthly · Next due {parsed.date}</p>
+              <p className="subtle">
+                Confirm these details before saving. You can edit the schedule
+                after adding.
+              </p>
+            </div>
+          )}
+          {toggle("This is a subscription", subscription, setSubscription)}
+        </>
+      )}
+      {type === "subscription" && (
+        <>
+          <label className="field">
+            <span>Which subscription?</span>
+            <select
+              className="carry-input"
+              name="service"
+              required
+              value={selectedSubscription}
+              onChange={(event) => {
+                const selected = event.target.value;
+                setSelectedSubscription(selected);
+                const option = subscriptionOption(selected);
+                if (option) setFrequency(option.frequency);
+              }}
+            >
+              <option value="" disabled>
+                Choose a service
+              </option>
+              {subscriptionGroups.map((group) => (
+                <optgroup label={group} key={group}>
+                  {subscriptionCatalog
+                    .filter((option) => option.group === group)
+                    .map((option) => (
+                      <option value={option.id} key={option.id}>
+                        {option.name}
+                      </option>
+                    ))}
+                </optgroup>
+              ))}
+              <option value="custom">Other / custom subscription</option>
+            </select>
+          </label>
+          {selectedSubscription === "custom" && (
+            <FormField label="Subscription name" name="customName" />
+          )}
+          <div className="form-grid">
+            <FormField
+              label="Your actual amount ($)"
+              name="amount"
+              type="number"
+            />
+            <FormField
+              label="Next charge date"
+              name="date"
+              type="date"
+              value={today(state.timezone)}
+            />
+          </div>
+          {frequencyChoice}
+          <div className="insight-box">
+            <h3>Reminder included</h3>
+            <p>
+              Gift will add this as its own subscription and turn on bill
+              reminders automatically. If email reminders are already enabled,
+              this subscription will be included there too.
+            </p>
+            <p className="subtle">
+              Gift does not guess the price or charge your card. Enter the
+              amount from your statement or subscription account.
+            </p>
+          </div>
+        </>
+      )}
+      {type === "editBill" && bill && (
+        <>
+          <FormField label="Bill name" name="name" value={bill.name} />
+          <FormField
+            label="Amount ($)"
+            name="amount"
+            value={bill.amount / 100}
+            type="number"
+          />
+          <FormField
+            label="Next due date"
+            name="date"
+            type="date"
+            value={bill.date}
+          />
+          {frequencyChoice}
+          {toggle("Subscription", subscription, setSubscription)}
+          {toggle("Pause this bill", paused, setPaused)}
+        </>
+      )}
+      {type === "payBill" && bill && (
+        <>
+          <div className="insight-box">
+            <h3>{bill.name}</h3>
+            <strong>{money(bill.amount, 2)}</strong>
+            <p>Due {id?.split("|")[1]}</p>
+          </div>
+          <p className="subtle">
+            Marking this paid deducts {money(bill.amount)} from{" "}
+            {state.accounts[0]?.name ?? "your account"}. This records a payment
+            you’ve already made; it does not transfer money.
+          </p>
+          <button
+            type="button"
+            className="text-action"
+            onClick={() => open("editBill", bill.id)}
+          >
+            Edit bill details
+          </button>
+        </>
+      )}
+      {type === "goal" && (
+        <>
+          <div className="form-grid">
+            <FormField label="Goal name" name="name" value={goal?.name} />
+            <FormField
+              label="Icon"
+              name="icon"
+              value={goal?.icon ?? "✈"}
+              required={false}
+            />
+          </div>
+          <div className="form-grid">
+            <FormField
+              label="Target ($)"
+              name="target"
+              type="number"
+              value={(goal?.target ?? 500000) / 100}
+            />
+            <FormField
+              label="Already saved ($)"
+              name="saved"
+              type="number"
+              value={(goal?.saved ?? 0) / 100}
+            />
+          </div>
+          <p className="subtle">
+            Already-saved money is held outside your available accounts. Adding
+            it here doesn’t deduct it again.
+          </p>
+          <Field
+            label="Monthly contribution ($)"
+            type="number"
+            value={contribution}
+            onChange={(v) => setContribution(Number(v))}
+            min={0}
+          />
+          <div className="form-grid">
+            <FormField
+              label="Next contribution"
+              name="date"
+              type="date"
+              value={goal?.date ?? addDays(today(), 7)}
+            />
+            <FormField
+              label="Target date"
+              name="targetDate"
+              type="date"
+              value={goal?.targetDate ?? monthDate(today(), 12)}
+            />
+          </div>
+          {goal && (
+            <div className="insight-box">
+              <span>IF YOU CHANGE THIS</span>
+              <p>
+                Monthly free spending changes by{" "}
+                {money(goal.contribution - Math.round(contribution * 100))}.
+              </p>
+              <p>
+                Runway: {d.runway.days}
+                {d.runway.capped ? "+" : ""} →{" "}
+                {
+                  calculateRunway({
+                    ...state,
+                    goals: state.goals.map((g) =>
+                      g.id === goal.id
+                        ? { ...g, contribution: Math.round(contribution * 100) }
+                        : g,
+                    ),
+                  }).days
+                }{" "}
+                days.
+              </p>
+              <p>
+                Estimated completion:{" "}
+                {calculateGoalCompletion({
+                  ...goal,
+                  contribution: Math.round(contribution * 100),
+                }).date ?? "Set a contribution"}
+                .
+              </p>
+            </div>
+          )}
+        </>
+      )}
+      {type === "contribute" && goal && (
+        <>
+          <h3>{goal.name}</h3>
+          <FormField
+            label="Amount to move into savings ($)"
+            name="amount"
+            type="number"
+          />
+          <p className="subtle">
+            This records a transfer from your available balance into your goal.
+            No automatic bank transfer is made.
+          </p>
+        </>
+      )}
+      {type === "purchase" && (
+        <>
+          <Field
+            label="What do you have in mind?"
+            value={purchaseName}
+            onChange={setPurchaseName}
+            required={false}
+          />
+          <Field
+            label="Price ($)"
+            type="number"
+            value={price}
+            onChange={(v) => setPrice(Number(v))}
+            min={0.01}
+            step=".01"
+          />
+          <Field
+            label="Planned purchase date"
+            type="date"
+            value={purchaseDate}
+            onChange={setPurchaseDate}
+            min={today(state.timezone)}
+          />
+          {(() => {
+            const sim = simulatePurchase(
+              state,
+              Math.round(Math.max(0, price) * 100),
+              today(state.timezone),
+              purchaseDate,
+            );
+            return (
+              <div className="insight-box">
+                <span className="eyebrow">
+                  {purchaseDate === today(state.timezone)
+                    ? "IF YOU BUY THIS TODAY"
+                    : `IF YOU BUY ON ${purchaseDate}`}
+                </span>
+                <div className="review-grid">
+                  <div>
+                    Current runway
+                    <strong>
+                      {sim.before.days}
+                      {sim.before.capped ? "+" : ""} days
+                    </strong>
+                  </div>
+                  <div>
+                    After purchase
+                    <strong>
+                      {sim.after.days}
+                      {sim.after.capped ? "+" : ""} days
+                    </strong>
+                  </div>
+                </div>
+                <div className="breakdown-row">
+                  <span>Bills before payday covered</span>
+                  <b>{sim.billsCovered ? "Yes" : "Not fully"}</b>
+                </div>
+                <div className="breakdown-row">
+                  <span>Remaining safe today</span>
+                  <b>
+                    {money(sim.safeBefore)} → {money(sim.safeAfter)}
+                  </b>
+                </div>
+                <div className="breakdown-row">
+                  <span>Projected cash on purchase day</span>
+                  <b>
+                    {sim.withinForecast
+                      ? `${money(sim.beforeCash!)} → ${money(sim.afterCash!)}`
+                      : "Outside forecast"}
+                  </b>
+                </div>
+                <div className="breakdown-row">
+                  <span>Lowest cushion above your buffer · 180 days</span>
+                  <b>
+                    {money(sim.lowestBefore)} → {money(sim.lowestAfter)}
+                  </b>
+                </div>
+                <p className="subtle">
+                  {!sim.withinForecast
+                    ? "Choose a date within the next 180 days to see the purchase impact."
+                    : sim.before.capped && sim.after.capped
+                      ? "Both plans stay above your buffer throughout the 180-day forecast. The purchase still reduces your projected cash; 180+ is a limit, not an exact end date."
+                      : sim.before.capped
+                        ? `Your current plan lasts at least 180 days. With this purchase, it reaches your buffer in ${sim.after.days} days.`
+                        : `This uses approximately ${Math.max(0, sim.before.days - sim.after.days)} days of your forecast.`}
+                </p>
+                {sim.safeBefore === sim.safeAfter && (
+                  <p className="subtle">
+                    Today’s allowance can stay the same when your spending
+                    budget sets the limit, or the purchase falls after your next
+                    payday.
+                  </p>
+                )}
+              </div>
+            );
+          })()}
+        </>
+      )}
+      {type === "planner" && (
+        <>
+          <div className="insight-box">
+            <span className="eyebrow">NEXT PAYCHECK</span>
+            <strong>{money(d.payday?.amount ?? 0)}</strong>
+            <p>
+              {d.payday
+                ? `Expected ${d.payday.date}`
+                : "Add an income schedule first."}
+            </p>
+          </div>
+          <div className="breakdown-row">
+            <span>Bills · next 30 days</span>
+            <b>{money(d.billReserve)}</b>
+          </div>
+          {state.categories.map((c, i) => (
+            <Field
+              key={c.id}
+              label={c.name + " ($ / budget period)"}
+              value={allocations[i]}
+              type="number"
+              min={0}
+              onChange={(v) =>
+                setAllocations((a) =>
+                  a.map((x, j) => (j === i ? Number(v) : x)),
+                )
+              }
+            />
+          ))}
+          {state.goals.map((g, i) => (
+            <Field
+              key={g.id}
+              label={g.name + " ($ / month)"}
+              value={goalAllocations[i]}
+              type="number"
+              min={0}
+              onChange={(v) =>
+                setGoalAllocations((a) =>
+                  a.map((x, j) => (j === i ? Number(v) : x)),
+                )
+              }
+            />
+          ))}
+          <div className="insight-box">
+            <p>
+              After these allocations:{" "}
+              {money(
+                (d.payday?.amount ?? 0) -
+                  d.billReserve -
+                  allocations.reduce((a, b) => a + b, 0) * 100 -
+                  goalAllocations.reduce((a, b) => a + b, 0) * 100,
+              )}
+            </p>
+            <p>
+              Projected runway:{" "}
+              {
+                calculateRunway({
+                  ...state,
+                  categories: state.categories.map((c, i) => ({
+                    ...c,
+                    budget: Math.round(allocations[i] * 100),
+                  })),
+                  goals: state.goals.map((g, i) => ({
+                    ...g,
+                    contribution: Math.round(goalAllocations[i] * 100),
+                  })),
+                }).days
+              }{" "}
+              days
+            </p>
+            <span className="subtle">
+              Updates your budget limits and monthly savings plan. Income is not
+              recorded again.
+            </span>
+          </div>
+        </>
+      )}
+      {type === "account" && (
+        <>
+          <FormField
+            label="Account name"
+            name="name"
+            value={
+              state.accounts.find((x) => x.id === id)?.name ??
+              "Everyday checking"
+            }
+          />
+          <FormField
+            label="Available balance ($)"
+            name="balance"
+            type="number"
+            value={
+              id
+                ? (state.accounts.find((x) => x.id === id)?.balance ?? 0) / 100
+                : undefined
+            }
+          />
+          <p className="subtle">
+            Use money that is available now. Keep goal savings separate from
+            this balance.
+          </p>
+          {state.accounts.map((a) => (
+            <button
+              type="button"
+              className="list-row full-row"
+              key={a.id}
+              onClick={() => open("account", a.id)}
+            >
+              <span className="row-copy">
+                <b>{a.name}</b>
+              </span>
+              <b>{money(a.balance)}</b>
+            </button>
+          ))}
+        </>
+      )}
+      {type === "income" && (
+        <>
+          <FormField label="Income source" name="name" value="Paycheck" />
+          <FormField label="Amount ($)" name="amount" type="number" />
+          <FormField
+            label="Arrival date"
+            name="date"
+            type="date"
+            value={today()}
+          />
+          {frequencyChoice}
+          <p className="subtle">
+            Income dated today or earlier is added to your available balance.
+            Future income affects your forecast.
+          </p>
+          <div className="section-heading">
+            <h3>Scheduled income</h3>
+          </div>
+          {state.income.map((x) => (
+            <div className="breakdown-row" key={x.id}>
+              <span>
+                {x.name}
+                <small>
+                  {x.date} · {x.frequency}
+                </small>
+              </span>
+              <b>{money(x.amount)}</b>
+              <button
+                type="button"
+                aria-label={"Remove " + x.name}
+                className="icon-button"
+                onClick={() =>
+                  commit({
+                    ...state,
+                    income: state.income.filter((i) => i.id !== x.id),
+                  })
+                }
+              >
+                <Trash2 size={15} />
+              </button>
+            </div>
+          ))}
+        </>
+      )}
+      {type === "period" && (
+        <>
+          <FormField
+            label="Start"
+            name="start"
+            type="date"
+            value={state.periodStart}
+          />
+          <FormField
+            label="End"
+            name="end"
+            type="date"
+            value={state.periodEnd}
+          />
+        </>
+      )}
+      {type === "settings" && (
+        <>
+          <a className="secondary" href="/billing">
+            Subscription &amp; billing
+          </a>
+          <a className="secondary" href="/import">
+            Import an existing budget
+          </a>
+          <a className="secondary" href="/auth/signout">
+            Sign out
+          </a>
+          <button
+            type="button"
+            className="secondary"
+            onClick={() => open("setup")}
+          >
+            Review guided account setup
+          </button>
+          <button
+            type="button"
+            className="secondary"
+            onClick={() => open("paydays")}
+          >
+            Payday & income
+          </button>
+          <button
+            type="button"
+            className="secondary"
+            onClick={() => open("reminders")}
+          >
+            Payday & bill reminders
+          </button>
+          <FormField label="Your name" name="name" value={state.name} />
+          <FormField
+            label="Protected minimum balance ($)"
+            name="minimum"
+            type="number"
+            value={state.protectedMinimum / 100}
+          />
+          <p className="subtle">
+            Your runway ends when projected cash reaches this buffer.
+          </p>
+          {Object.entries(settings).map(([key, value]) => (
+            <label className="toggle-row between" key={key}>
+              {key === "bills"
+                ? "Upcoming bill notices"
+                : key === "budget"
+                  ? "Budget warnings"
+                  : "Goal milestones"}
+              <Switch
+                checked={value}
+                onCheckedChange={(v) => setSettings({ ...settings, [key]: v })}
+              />
+            </label>
+          ))}
+          <button
+            type="button"
+            className="secondary"
+            onClick={() => open("install")}
+          >
+            Install Gift
+          </button>
+          <button
+            type="button"
+            className="secondary"
+            onClick={() => {
+              const blob = new Blob([JSON.stringify(state, null, 2)], {
+                type: "application/json",
+              });
+              const url = URL.createObjectURL(blob);
+              const a = document.createElement("a");
+              a.href = url;
+              a.download = "gift-budget.json";
+              a.click();
+              URL.revokeObjectURL(url);
+            }}
+          >
+            Export my data
+          </button>
+          <AlertDialog>
+            <AlertDialogTrigger asChild>
+              <button type="button" className="danger-link">
+                Delete all my financial data
+              </button>
+            </AlertDialogTrigger>
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle>Delete your Gift data?</AlertDialogTitle>
+                <AlertDialogDescription>
+                  This permanently removes your accounts, transactions, bills,
+                  goals, and snapshots. Export a copy first if you need it.
+                  Deleting budget data does not cancel your subscription. Manage
+                  it under Subscription &amp; billing.
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel>Keep my data</AlertDialogCancel>
+                <AlertDialogAction onClick={() => void erase()}>
+                  Delete my data
+                </AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
+        </>
+      )}
+      {(localError || error) && (
+        <p role="alert" className="error-message">
+          {localError || error}
+        </p>
+      )}
+      <button
+        className="primary wide"
+        disabled={
+          saving ||
+          (type === "bill" && !parsed) ||
+          (type === "transaction" && !state.categories.length)
+        }
+      >
+        {saving
+          ? "Saving…"
+          : type === "payBill"
+            ? "Mark as paid"
+            : type === "purchase"
+              ? "Add planned purchase"
+              : type === "planner"
+                ? "Apply this plan"
+                : "Save changes"}
+        <ArrowRight size={17} />
+      </button>
+    </form>
+  );
+}
