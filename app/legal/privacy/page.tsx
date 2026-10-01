@@ -34,17 +34,17 @@ export default function PrivacyPage() {
         <p>
           We use information to authenticate you, save and display your budget,
           calculate estimates, process subscriptions, deliver emails, provide
-          Advisor answers, prevent abuse, troubleshoot, secure and improve the
+          Gift AI answers, prevent abuse, troubleshoot, secure and improve the
           platform, communicate with you, and comply with legal obligations. We
           do not sell your personal information or use your private budget to
           serve targeted advertising.
         </p>
       </section>
       <section>
-        <h2>4. AI Advisor processing</h2>
+        <h2>4. Gift AI processing</h2>
         <p>
-          When you ask Advisor a question, Gift may send your question, recent
-          Advisor messages, and a limited budget summary to OpenAI to generate a
+          When you ask Gift AI a question, Gift may send your question, recent
+          Gift AI messages, and a limited budget summary to OpenAI to generate a
           personalized response. The summary can include balances, budget
           categories, upcoming bills, goals, and estimates. It excludes your
           Gift name, email address, authentication credentials, receipt images,
@@ -61,7 +61,7 @@ export default function PrivacyPage() {
           operational purposes: Supabase for authentication and application
           data, Cloudflare for hosting and network security, Stripe for
           subscription billing, Mailgun for email delivery, and OpenAI for
-          optional Advisor responses. Their processing is governed by their
+          optional Gift AI responses. Their processing is governed by their
           contracts and privacy terms. Payment-card details are handled by
           Stripe and are not stored in Gift’s budget profile.
         </p>

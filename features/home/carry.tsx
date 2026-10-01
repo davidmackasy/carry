@@ -50,7 +50,7 @@ const navigation = [
   { name: "Spending", icon: Wallet },
   { name: "Bills", icon: CalendarDays },
   { name: "Goals", icon: Flag },
-  { name: "Advisor", icon: MessageCircle },
+  { name: "Advisor", label: "Gift AI", icon: MessageCircle },
 ];
 export default function Carry() {
   const [mounted, setMounted] = useState(false);
@@ -72,6 +72,7 @@ export default function Carry() {
     } else setModal({ type, id });
   };
   const firstName = state.name.split(" ")[0] || "friend";
+  const tabLabel = tab === "Advisor" ? "Gift AI" : tab;
   const outstanding = outstandingUpdates(state);
   const missedBillCount = outstanding.filter(
     (item) => item.kind === "bill",
@@ -137,14 +138,14 @@ export default function Carry() {
         <SidebarContent>
           <span className="eyebrow nav-label">YOUR MONEY</span>
           <nav>
-            {navigation.map(({ name, icon: Icon }) => (
+            {navigation.map(({ name, label, icon: Icon }) => (
               <button
                 className={tab === name ? "nav-link active" : "nav-link"}
                 key={name}
                 onClick={() => setTab(name)}
               >
                 <Icon size={20} />
-                {name}
+                {label ?? name}
                 {name === "Bills" && missedBillCount > 0 ? (
                   <span
                     className="nav-badge"
@@ -185,7 +186,7 @@ export default function Carry() {
       <div className="app-body">
         <header className="topbar">
           <span className="breadcrumb">
-            My overview <span>/</span> {tab}
+            My overview <span>/</span> {tabLabel}
           </span>
           <span className="mobile-brand">Gift</span>
           <div className="header-actions">
@@ -228,7 +229,7 @@ export default function Carry() {
             <div className="page-heading">
               <div>
                 <p className="eyebrow">A CLEARER PICTURE, EVERY DAY</p>
-                <h1>{tab === "Home" ? `Hello, ${firstName} 👋` : tab}</h1>
+                <h1>{tab === "Home" ? `Hello, ${firstName} 👋` : tabLabel}</h1>
                 <p className="subtle">
                   {
                     {
@@ -345,14 +346,14 @@ export default function Carry() {
         </div>
       </div>
       <nav className="bottom-nav">
-        {navigation.map(({ name, icon: Icon }) => (
+        {navigation.map(({ name, label, icon: Icon }) => (
           <button
             key={name}
             onClick={() => setTab(name)}
             className={tab === name ? "active" : ""}
           >
             <Icon size={21} />
-            <span>{name}</span>
+            <span>{label ?? name}</span>
             {name === "Bills" && missedBillCount > 0 && (
               <span className="mobile-nav-badge">
                 {missedBillCount > 9 ? "9+" : missedBillCount}

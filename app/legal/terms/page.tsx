@@ -4,7 +4,7 @@ export default function TermsPage() {
   return (
     <LegalPage
       title="Terms of Service"
-      summary="These terms explain the agreement between you and Gift when you use our budgeting, reminder, receipt, goal, subscription, and Advisor features."
+      summary="These terms explain the agreement between you and Gift when you use our budgeting, reminder, receipt, goal, subscription, and Gift AI features."
     >
       <section>
         <h2>1. Accepting these terms</h2>
@@ -76,9 +76,9 @@ export default function TermsPage() {
         </p>
       </section>
       <section>
-        <h2>6. Gift Advisor and automated output</h2>
+        <h2>6. Gift AI and automated output</h2>
         <p>
-          Advisor may use an artificial-intelligence model and deterministic
+          Gift AI may use an artificial-intelligence model and deterministic
           calculations to answer questions using a limited summary of your saved
           budget. Automated output can be incomplete, inaccurate, or unsuitable
           for your circumstances. Review the underlying figures and use
