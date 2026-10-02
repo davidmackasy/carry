@@ -1,17 +1,18 @@
 import {supabase,supabaseAdmin} from '@/lib/supabase/server';
 import type {FinanceState} from '@/types/finance';
 import {emptyState} from '@/services/finance/sample';
-import {summarize,today} from '@/services/finance';
+import {rollBudgetPeriod,summarize,today} from '@/services/finance';
 export function check(error:{message:string}|null){if(error)throw new Error(error.message.includes('CONFLICT')?'CONFLICT':'Storage unavailable');}
 export async function readProfile(userId:string){
  const client=await supabase();
  const {data:row,error}=await client.from('financial_profiles').select('data,revision').eq('user_id',userId).maybeSingle();check(error);
- const state:FinanceState=row?row.data:emptyState();
+ const state:FinanceState=rollBudgetPeriod(row?row.data:emptyState());
  if(state.onboarded){const current=summarize(state);const saved=await client.from('runway_snapshots').upsert({user_id:userId,date:today(state.timezone),runway:current.runway.days,balance:current.balance,safe:current.safe.today},{onConflict:'user_id,date',ignoreDuplicates:true});check(saved.error);}
  const snapshots=await client.from('runway_snapshots').select('date,runway,balance,safe').eq('user_id',userId).order('date',{ascending:false}).limit(180);check(snapshots.error);
  state.snapshots=(snapshots.data??[]).reverse();return {state,revision:row?.revision??0,summary:summarize(state)};
 }
 export async function saveProfile(userId:string,state:FinanceState,revision:number,_email?:string){
+ state=rollBudgetPeriod(state);
  const client=await supabase();const summary=summarize(state);
  const {error}=await client.rpc('save_gift_profile',{p_data:{...state,snapshots:[]},p_revision:revision,p_date:today(state.timezone),p_runway:summary.runway.days,p_balance:summary.balance,p_safe:summary.safe.today});check(error);return readProfile(userId);
 }

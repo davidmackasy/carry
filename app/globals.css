@@ -1537,3 +1537,17 @@
     grid-column: 1 / -1;
   }
 }
+
+/* Recurring spending periods */
+.spending-period-card .eyebrow{display:flex;align-items:center;gap:7px}
+.spending-period-card strong small{font-size:18px;font-weight:500;letter-spacing:-.3px;color:#65715b}
+.period-result{display:flex;gap:12px;align-items:flex-start;margin:0 0 18px;padding:14px 16px;border:1px solid #dce6d5;border-radius:16px;background:#f3f7ef;color:#46543e}
+.period-result.over{background:#fbefea;border-color:#efd5cd;color:#79574d}
+.period-result div{display:grid;gap:3px}.period-result span{font-size:12px;line-height:1.5;opacity:.8}
+.budget-history{margin:22px 0 4px;padding:0!important;overflow:hidden;background:#fff!important}
+.budget-history summary{display:flex;align-items:center;justify-content:space-between;padding:18px 20px;cursor:pointer;list-style:none;font-weight:650}
+.budget-history summary::-webkit-details-marker{display:none}.budget-history summary>span{display:flex;align-items:center;gap:9px}.budget-history summary small{font-weight:500;color:#7f8b72}
+.budget-history-list{border-top:1px solid #ecebe5}
+.budget-history-list article{display:grid;grid-template-columns:1fr auto;gap:5px 18px;padding:16px 20px;border-bottom:1px solid #efeee8}
+.budget-history-list article:last-child{border-bottom:0}.budget-history-list article>div{display:grid;gap:4px}.budget-history-list article>div:nth-child(2){text-align:right}.budget-history-list article span,.budget-history-list article p{font-size:12px;color:#7a8472}.budget-history-list article p{grid-column:1/-1;margin:3px 0 0}.budget-history-list .history-over{color:#a05e51}
+@media(max-width:640px){.spending-period-card strong small{display:block;margin-top:5px}.period-result{margin-inline:0}.budget-history-list article{grid-template-columns:1fr}.budget-history-list article>div:nth-child(2){text-align:left}.budget-history-list article p{grid-column:1}.budget-history summary{padding:16px}.budget-history-list article{padding:15px 16px}}

@@ -24,7 +24,7 @@ import {
   AlertDialogAction,
 } from "@/components/ui/alert-dialog";
 import { Plus, ArrowRight, Trash2 } from "lucide-react";
-import type { FinanceState, Frequency } from "@/types/finance";
+import type { BudgetCycle, FinanceState, Frequency } from "@/types/finance";
 import { Field, Choice, cents, uid, Empty } from "./shared";
 import {
   money,
@@ -32,6 +32,8 @@ import {
   today,
   addDays,
   monthDate,
+  monthStart,
+  monthEnd,
   summarize,
   simulatePurchase,
   calculateRunway,
@@ -159,6 +161,9 @@ function EditorBody({
   );
   const [frequency, setFrequency] = useState<Frequency>(
     bill?.frequency ?? "monthly",
+  );
+  const [budgetCycle, setBudgetCycle] = useState<BudgetCycle>(
+    state.budgetCycle ?? "monthly",
   );
   const [selectedSubscription, setSelectedSubscription] = useState("");
   const [subscription, setSubscription] = useState(bill?.subscription ?? false);
@@ -424,8 +429,16 @@ function EditorBody({
             frequency,
           });
       } else if (type === "period") {
-        next.periodStart = text("start");
-        next.periodEnd = text("end");
+        const requestedStart = text("start");
+        next.budgetCycle = budgetCycle;
+        next.periodStart =
+          budgetCycle === "monthly" ? monthStart(requestedStart) : requestedStart;
+        next.periodEnd =
+          budgetCycle === "monthly"
+            ? monthEnd(next.periodStart)
+            : budgetCycle === "biweekly"
+              ? addDays(next.periodStart, 13)
+              : text("end");
         if (next.periodEnd < next.periodStart)
           throw new Error("The end date must follow the start date.");
       } else if (type === "settings") {
@@ -1205,18 +1218,35 @@ function EditorBody({
       )}
       {type === "period" && (
         <>
+          <Choice
+            label="Budget repeats"
+            value={budgetCycle}
+            onChange={(value) => setBudgetCycle(value as BudgetCycle)}
+            options={[
+              { value: "monthly", label: "Every calendar month" },
+              { value: "biweekly", label: "Every two weeks" },
+              { value: "custom", label: "Repeat this custom range" },
+            ]}
+          />
           <FormField
-            label="Start"
+            label={budgetCycle === "monthly" ? "Month containing" : "Current period starts"}
             name="start"
             type="date"
             value={state.periodStart}
           />
-          <FormField
-            label="End"
-            name="end"
-            type="date"
-            value={state.periodEnd}
-          />
+          {budgetCycle === "custom" && (
+            <FormField
+              label="Current period ends"
+              name="end"
+              type="date"
+              value={state.periodEnd}
+            />
+          )}
+          <p className="subtle">
+            When this period ends, spending starts at $0 for the next period.
+            Your bucket limits and every transaction stay saved, and the completed
+            period remains available in your history.
+          </p>
         </>
       )}
       {type === "settings" && (

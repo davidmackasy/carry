@@ -62,6 +62,21 @@ export type Snapshot = {
   balance: number;
   safe: number;
 };
+export type BudgetCycle = "monthly" | "biweekly" | "custom";
+export type BudgetPeriod = {
+  id: string;
+  start: string;
+  end: string;
+  cycle: BudgetCycle;
+  categories: {
+    categoryId: string;
+    name: string;
+    budget: number;
+    spent: number;
+  }[];
+  totalBudget: number;
+  totalSpent: number;
+};
 export type FinanceState = {
   shoppingList?: {
     id: string;
@@ -120,6 +135,8 @@ export type FinanceState = {
   protectedMinimum: number;
   periodStart: string;
   periodEnd: string;
+  budgetCycle?: BudgetCycle;
+  budgetHistory?: BudgetPeriod[];
   snapshots: Snapshot[];
   notificationSettings: { bills: boolean; budget: boolean; goals: boolean };
   onboarded: boolean;

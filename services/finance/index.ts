@@ -1,15 +1,40 @@
-import type { FinanceState, Frequency, Income, Category, Goal } from '@/types/finance';
+import type { FinanceState, Frequency, Income, Category, Goal, BudgetCycle, BudgetPeriod } from '@/types/finance';
 export const money=(cents:number, decimals=0)=>new Intl.NumberFormat('en-US',{style:'currency',currency:'USD',maximumFractionDigits:decimals,minimumFractionDigits:decimals}).format(cents/100);
 export const iso=(d:Date)=>d.toISOString().slice(0,10);
 export const today=(timezone?:string)=>{const d=new Date();if(timezone){const parts=new Intl.DateTimeFormat('en-US',{timeZone:timezone,year:'numeric',month:'2-digit',day:'2-digit'}).formatToParts(d);return `${parts.find(x=>x.type==='year')!.value}-${parts.find(x=>x.type==='month')!.value}-${parts.find(x=>x.type==='day')!.value}`;}return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`};
 export const addDays=(date:string,n:number)=>iso(new Date(Date.parse(date+'T12:00:00Z')+n*86400000));
 export const daysBetween=(a:string,b:string)=>Math.round((Date.parse(b+'T12:00:00Z')-Date.parse(a+'T12:00:00Z'))/86400000);
 export const monthDate=(date:string,n:number)=>{const d=new Date(date+'T12:00:00Z');const day=d.getUTCDate();d.setUTCDate(1);d.setUTCMonth(d.getUTCMonth()+n);const last=new Date(Date.UTC(d.getUTCFullYear(),d.getUTCMonth()+1,0)).getUTCDate();d.setUTCDate(Math.min(day,last));return iso(d)};
+export const monthStart=(date:string)=>date.slice(0,7)+'-01';
+export const monthEnd=(date:string)=>addDays(monthDate(monthStart(date),1),-1);
 export function occurs(item:{date:string;frequency:Frequency;payDays?:number[]},date:string){if(date<item.date)return false;const delta=daysBetween(item.date,date);if(delta===0)return true;if(item.frequency==='once')return false;if(item.frequency==='weekly')return delta%7===0;if(item.frequency==='biweekly')return delta%14===0;const a=new Date(item.date+'T12:00:00Z'),b=new Date(date+'T12:00:00Z');const months=(b.getUTCFullYear()-a.getUTCFullYear())*12+b.getUTCMonth()-a.getUTCMonth();if(item.frequency==='monthly')return monthDate(item.date,months)===date;if(item.frequency==='yearly')return months%12===0&&monthDate(item.date,months)===date;const last=new Date(Date.UTC(b.getUTCFullYear(),b.getUTCMonth()+1,0)).getUTCDate();return (item.payDays??[1,15]).some(n=>b.getUTCDate()===Math.min(n,last));}
 export const balance=(s:FinanceState)=>s.accounts.reduce((sum,a)=>sum+a.balance,0);
 export function nextIncome(s:FinanceState,date=today(s.timezone)){for(let i=0;i<=180;i++){const day=addDays(date,i);const entries=s.income.filter(x=>occurs(x,day)&&!x.receivedDates?.includes(day));if(entries.length)return {date:day,days:i,amount:entries.reduce((a,b)=>a+b.amount,0)};}return null;}
 export function upcomingBills(s:FinanceState,date=today(s.timezone),horizon=30){const items=[];const earliest=s.bills.filter(b=>!b.paused).reduce((min,b)=>b.date<min?b.date:min,date);for(let i=Math.max(-3660,daysBetween(date,earliest));i<horizon;i++){const day=addDays(date,i);for(const bill of s.bills)if(!bill.paused&&occurs(bill,day)&&!bill.paidDates.includes(day))items.push({...bill,due:day,days:i});}return items;}
 export function categorySpent(s:FinanceState,id:string,start=s.periodStart,end=s.periodEnd){return s.transactions.filter(t=>!t.excluded&&t.date>=start&&t.date<=end).reduce((a,t)=>a+(t.splits?t.splits.filter(x=>x.categoryId===id).reduce((p,x)=>p+x.amount,0):t.categoryId===id?t.amount:0),0);}
+function archiveBudgetPeriod(s:FinanceState,start:string,end:string,cycle:BudgetCycle):BudgetPeriod{
+ const categories=s.categories.map(c=>({categoryId:c.id,name:c.name,budget:c.budget,spent:categorySpent(s,c.id,start,end)}));
+ return {id:`${start}:${end}`,start,end,cycle,categories,totalBudget:categories.reduce((a,c)=>a+c.budget,0),totalSpent:categories.reduce((a,c)=>a+c.spent,0)};
+}
+/** Advances an expired budget without deleting transactions. Completed limits and results are snapshotted for history. */
+export function rollBudgetPeriod(s:FinanceState,date=today(s.timezone)):FinanceState{
+ if(!s.budgetCycle){
+  const start=monthStart(date),end=monthEnd(date),history=[...(s.budgetHistory??[])];
+  if(s.periodStart<start){const legacyEnd=addDays(start,-1);const record=archiveBudgetPeriod(s,s.periodStart,legacyEnd,'custom');if(!history.some(h=>h.id===record.id))history.push(record);}
+  return {...s,budgetCycle:'monthly',budgetHistory:history.sort((a,b)=>a.start.localeCompare(b.start)).slice(-120),periodStart:start,periodEnd:end};
+ }
+ if(date<=s.periodEnd)return s;
+ const cycle=s.budgetCycle;
+ const history=[...(s.budgetHistory??[])];
+ let start=s.periodStart,end=s.periodEnd,guard=0;
+ while(date>end&&guard++<240){
+  const record=archiveBudgetPeriod(s,start,end,cycle);
+  if(!history.some(h=>h.id===record.id))history.push(record);
+  if(cycle==='monthly'){start=monthStart(monthDate(end,1));end=monthEnd(start);}
+  else {const length=cycle==='biweekly'?14:Math.max(1,daysBetween(start,end)+1);start=addDays(end,1);end=addDays(start,length-1);}
+ }
+ return {...s,budgetCycle:cycle,budgetHistory:history.sort((a,b)=>a.start.localeCompare(b.start)).slice(-120),periodStart:start,periodEnd:end};
+}
 export function calculateCategoryPace(s:FinanceState,c:Category,date=today(s.timezone)){const spent=categorySpent(s,c.id);const remaining=Math.max(0,c.budget-spent);const days=Math.max(1,daysBetween(date,s.periodEnd)+1);const total=Math.max(1,daysBetween(s.periodStart,s.periodEnd)+1);const elapsed=Math.max(1,total-days);const ratio=c.budget?spent/c.budget:1;return {spent,remaining,daily:Math.floor(remaining/days),ratio,status:ratio>=1?'EXHAUSTED':ratio>=.9?'ALMOST GONE':spent>c.budget*elapsed/total*1.15?'RUNNING HOT':spent<c.budget*elapsed/total*.8?'UNDER BUDGET':'ON TRACK'};}
 export function expectedDailySpending(s:FinanceState){return Math.round(s.categories.reduce((a,c)=>a+c.budget,0)/Math.max(1,daysBetween(s.periodStart,s.periodEnd)+1));}
 export function forecastBalance(s:FinanceState,date=today(s.timezone),horizon=180){let cash=balance(s);const rows=[];const goalRemaining=new Map(s.goals.map(g=>[g.id,Math.max(0,g.target-g.saved)]));for(let i=0;i<horizon;i++){const day=addDays(date,i);const openingBalance=cash;const income=s.income.filter(x=>occurs(x,day)&&!x.receivedDates?.includes(day)).reduce((a,b)=>a+b.amount,0);const bills=s.bills.filter(x=>!x.paused&&occurs(x,day)&&!x.paidDates.includes(day)).reduce((a,b)=>a+b.amount,0)+(i===0?upcomingBills(s,date,0).reduce((a,b)=>a+b.amount,0):0);const goals=s.goals.filter(x=>occurs({date:x.date,frequency:'monthly'},day)).reduce((a,g)=>{const amount=Math.min(g.contribution,goalRemaining.get(g.id)??0);goalRemaining.set(g.id,(goalRemaining.get(g.id)??0)-amount);return a+amount;},0);const spending=expectedDailySpending(s);const purchases=s.purchases.filter(x=>x.date===day).reduce((a,b)=>a+b.amount,0);cash+=income-bills-goals-spending-purchases;rows.push({date:day,day:i,openingBalance,income,bills,goals,spending,purchases,balance:cash});}return rows;}
