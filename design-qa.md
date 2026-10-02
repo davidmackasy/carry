@@ -48,3 +48,15 @@ Follow-up result: passed
 - Browser console verification returned no warnings or errors.
 
 Landing page final result: passed
+
+## Public and private route separation
+
+- Verified the deployed root domain while signed in: `/` remains on the public landing page and shows `My account` and `Open Gift` actions.
+- Verified every signed-in landing-page CTA points to `/app`.
+- Verified `/welcome` redirects to `/` so there is one canonical marketing address.
+- Verified `/app` loads the authenticated Gift dashboard.
+- Sign-in, signup, email confirmation, password reset, import, billing, and reminder-email return links now use `/app` when opening the private product.
+- Authentication regression suite: 10 tests passed.
+- Browser console verification returned no warnings or errors.
+
+Routing final result: passed

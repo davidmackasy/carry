@@ -10,6 +10,6 @@ export async function getChatGPTUser():Promise<ChatGPTUser|null>{
   return {userId:user.id,email:user.email,displayName:fullName??user.email,fullName};
 }
 export async function requireChatGPTUser(returnTo:string){const user=await getChatGPTUser();if(user)return user;redirect(chatGPTSignInPath(returnTo));}
-export function safeReturn(value:string|null){if(!value||!value.startsWith('/')||value.startsWith('//'))return '/';try{const u=new URL(value,'https://app.local');return u.origin==='https://app.local'&&!u.pathname.startsWith('/auth')?u.pathname+u.search+u.hash:'/';}catch{return '/';}}
+export function safeReturn(value:string|null){if(!value||!value.startsWith('/')||value.startsWith('//'))return '/app';try{const u=new URL(value,'https://app.local');return u.origin==='https://app.local'&&!u.pathname.startsWith('/auth')?u.pathname+u.search+u.hash:'/app';}catch{return '/app';}}
 export function chatGPTSignInPath(returnTo:string){return '/auth/login?next='+encodeURIComponent(safeReturn(returnTo));}
 export function chatGPTSignOutPath(){return '/auth/signout';}

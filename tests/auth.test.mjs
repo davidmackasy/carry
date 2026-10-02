@@ -23,7 +23,7 @@ test('successful login returns cookies that authenticate the next request',async
  let calls=0;
  const mock=async(url)=>{calls++;assert.match(String(url),/\/auth\/v1\/token\?grant_type=password/);return json(session);};
  const response=await handleAuth(req({action:'login',email:user.email,password:'valid-password',next:'//evil.test'}),config,mock);
- assert.equal(response.status,200);assert.equal((await response.json()).redirect,'/');assert.equal(calls,1);
+ assert.equal(response.status,200);assert.equal((await response.json()).redirect,'/app');assert.equal(calls,1);
  assert.ok(response.headers.getSetCookie().some(v=>v.includes('auth-token=')&&v.includes('HttpOnly')&&v.includes('Secure')));
  const auth=requestAuth(new Request(origin+'/',{headers:{cookie:cookieHeader(response)}}),config,async(url,options)=>{assert.match(String(url),/\/auth\/v1\/user/);assert.equal(new Headers(options.headers).get('authorization'),'Bearer '+token);return json(user);});
  const result=await auth.client.auth.getUser();assert.equal(result.data.user.id,user.id);
@@ -45,13 +45,13 @@ test('forgot password needs no password, retains PKCE cookies, and surfaces prov
 test('confirmation and recovery attach session cookies to their redirect',async()=>{
  for(const type of ['signup','recovery']){
   const r=await handleConfirmation(new Request(origin+'/auth/confirm?token_hash=test-token&type='+type),config,async()=>json(session));
-  assert.equal(r.status,303);assert.equal(r.headers.get('location'),origin+(type==='recovery'?'/auth/reset':'/'));assert.ok(r.headers.getSetCookie().length>0);
+  assert.equal(r.status,303);assert.equal(r.headers.get('location'),origin+(type==='recovery'?'/auth/reset':'/app'));assert.ok(r.headers.getSetCookie().length>0);
  }
 });
 test('invalid confirmation, cross-origin requests, and unsafe redirects fail safely',async()=>{
  const r=await handleConfirmation(new Request(origin+'/auth/confirm?token_hash=bad&type=signup'),config,async()=>json({code:'otp_expired',msg:'Expired'},403));assert.match(r.headers.get('location'),/message=/);
  const cross=await handleAuth(req({action:'login'},{origin:'https://evil.test'}),config,async()=>{throw Error('must not call');});assert.equal(cross.status,403);
- assert.equal(safeNext('/\\evil.test'),'/');assert.equal(safeNext('/auth/login'),'/');assert.equal(safeNext('/?tab=Bills'),'/?tab=Bills');
+ assert.equal(safeNext('/\\evil.test'),'/app');assert.equal(safeNext('/auth/login'),'/app');assert.equal(safeNext('/app?tab=Bills'),'/app?tab=Bills');
 });
 test('PKCE recovery callback preserves cookies and opens reset screen',async()=>{
  const r=await handleAuth(req({action:'forgot',email:user.email}),config,async()=>json({}));
@@ -61,7 +61,7 @@ test('PKCE recovery callback preserves cookies and opens reset screen',async()=>
 test('signout clears session cookies and reset requires an authenticated session',async()=>{
  const signedIn=await handleAuth(req({action:'login',email:user.email,password:'password123'}),config,async()=>json(session));
  const signedOut=await handleAuth(req({action:'signout'},{cookie:cookieHeader(signedIn)}),config,async(url)=>String(url).includes('/user')?json(user):new Response(null,{status:204}));
- assert.equal((await signedOut.json()).redirect,'/auth/login');assert.ok(signedOut.headers.getSetCookie().some(v=>v.includes('Max-Age=0')));
+ assert.equal((await signedOut.json()).redirect,'/');assert.ok(signedOut.headers.getSetCookie().some(v=>v.includes('Max-Age=0')));
  const reset=await handleAuth(req({action:'reset',password:'password123',confirmPassword:'password123'}),config,async()=>{throw Error('No session');});assert.equal(reset.status,401);
 });
 test('authenticated password reset succeeds and sends the password to the update endpoint',async()=>{
@@ -71,7 +71,7 @@ test('authenticated password reset succeeds and sends the password to the update
   assert.match(String(url),/\/auth\/v1\/user/);
   if(options.method==='PUT'){assert.equal(JSON.parse(options.body).password,'different123!');updated=true;}
   return json(user);
- });assert.equal(result.status,200);assert.equal((await result.json()).redirect,'/');assert.ok(updated);
+ });assert.equal(result.status,200);assert.equal((await result.json()).redirect,'/app');assert.ok(updated);
 });
 test('reset explains provider rejections without exposing raw provider messages',async()=>{
  const signedIn=await handleAuth(req({action:'login',email:user.email,password:'original123'}),config,async()=>json(session));

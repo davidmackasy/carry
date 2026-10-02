@@ -130,7 +130,7 @@ export default function Carry() {
     <SidebarProvider>
       <Sidebar className="carry-sidebar" collapsible="none">
         <SidebarHeader>
-          <a className="brand" href="/">
+          <a className="brand" href="/app">
             Gift
           </a>
           <span className="tagline">Give every dollar a purpose.</span>

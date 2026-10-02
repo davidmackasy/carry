@@ -9,7 +9,7 @@ export function requestAuth(request:Request,config:AuthConfig,fetcher:typeof fet
  }});
  return {client,respond:(body:unknown,status=200)=>{const headers=new Headers({'Content-Type':'application/json','Cache-Control':'private, no-store'});pending.forEach(value=>headers.append('Set-Cookie',value));return new Response(JSON.stringify(body),{status,headers});},redirect:(path:string)=>{const headers=new Headers({Location:new URL(path,new URL(request.url).origin).href,'Cache-Control':'private, no-store'});pending.forEach(value=>headers.append('Set-Cookie',value));return new Response(null,{status:303,headers});}};
 }
-export function safeNext(value:unknown){if(typeof value!=='string'||!value.startsWith('/')||value.startsWith('//'))return '/';try{const u=new URL(value,'https://app.local');return u.origin==='https://app.local'&&!u.pathname.startsWith('/auth')?u.pathname+u.search+u.hash:'/';}catch{return '/';}}
+export function safeNext(value:unknown){if(typeof value!=='string'||!value.startsWith('/')||value.startsWith('//'))return '/app';try{const u=new URL(value,'https://app.local');return u.origin==='https://app.local'&&!u.pathname.startsWith('/auth')?u.pathname+u.search+u.hash:'/app';}catch{return '/app';}}
 function resetErrorCode(error:{code?:string;name?:string}){return error.name==='AuthSessionMissingError'?'session_not_found':/^[a-z_]{1,64}$/.test(error.code??'')?error.code:'password_update_failed';}
 function authError(error:{code?:string;status?:number;name?:string},action:string){
  if(error.name==='AuthSessionMissingError')return 'Your reset session expired. Request a new password-reset email and use its newest link.';
@@ -40,15 +40,15 @@ export async function handleAuth(request:Request,config:AuthConfig,fetcher:typeo
   if(action==='login'){const {data,error}=await auth.client.auth.signInWithPassword({email,password});if(error)return auth.respond({error:authError(error,action)},400);if(!data.session)return auth.respond({error:'Sign-in did not create a session. Please try again.'},502);return auth.respond({redirect:safeNext(body.next)});}
   if(action==='signup'){const {data,error}=await auth.client.auth.signUp({email,password,options:{emailRedirectTo:origin+'/auth/confirm'}});if(error)return auth.respond({error:authError(error,action)},400);return auth.respond(data.session?{redirect:safeNext(body.next)}:{message:'Check your inbox for a confirmation link. After confirming your email, you can sign in.'});}
   if(action==='forgot'){const {error}=await auth.client.auth.resetPasswordForEmail(email,{redirectTo:origin+'/auth/confirm?flow=recovery'});if(error)return auth.respond({error:authError(error,action)},400);return auth.respond({message:'If an account exists for this email, a reset link is on its way. Check your inbox and spam folder.'});}
-  if(action==='reset'){const {data:{user},error:lookup}=await auth.client.auth.getUser();if(lookup||!user)return auth.respond({error:'Your reset session expired. Request a new password-reset email.'},401);const {error}=await auth.client.auth.updateUser({password});if(error)return auth.respond({error:authError(error,action),code:resetErrorCode(error)},400);return auth.respond({redirect:'/'});}
-  const {error}=await auth.client.auth.signOut();if(error)return auth.respond({error:'Could not sign out. Please retry.'},503);return auth.respond({redirect:'/auth/login'});
+  if(action==='reset'){const {data:{user},error:lookup}=await auth.client.auth.getUser();if(lookup||!user)return auth.respond({error:'Your reset session expired. Request a new password-reset email.'},401);const {error}=await auth.client.auth.updateUser({password});if(error)return auth.respond({error:authError(error,action),code:resetErrorCode(error)},400);return auth.respond({redirect:'/app'});}
+  const {error}=await auth.client.auth.signOut();if(error)return auth.respond({error:'Could not sign out. Please retry.'},503);return auth.respond({redirect:'/'});
  }catch{return auth.respond({error:'We could not reach the sign-in service. Please try again shortly.'},503);}
 }
 export async function handleConfirmation(request:Request,config:AuthConfig,fetcher:typeof fetch=fetch){
  const url=new URL(request.url);const auth=requestAuth(request,config,fetcher);const token=url.searchParams.get('token_hash'),type=url.searchParams.get('type'),code=url.searchParams.get('code');
  try{
-  if(code){const {error}=await auth.client.auth.exchangeCodeForSession(code);if(!error)return auth.redirect(url.searchParams.get('flow')==='recovery'?'/auth/reset':'/');}
-  else if(token&&(type==='signup'||type==='recovery'||type==='email')){const {error}=await auth.client.auth.verifyOtp({token_hash:token,type});if(!error)return auth.redirect(type==='recovery'?'/auth/reset':'/');}
+  if(code){const {error}=await auth.client.auth.exchangeCodeForSession(code);if(!error)return auth.redirect(url.searchParams.get('flow')==='recovery'?'/auth/reset':'/app');}
+  else if(token&&(type==='signup'||type==='recovery'||type==='email')){const {error}=await auth.client.auth.verifyOtp({token_hash:token,type});if(!error)return auth.redirect(type==='recovery'?'/auth/reset':'/app');}
  }catch{/* Display a recoverable error without leaking provider details or tokens. */}
  return auth.redirect('/auth/login?message='+encodeURIComponent('This confirmation link is invalid or expired. Request a new link or try signing in.'));
 }

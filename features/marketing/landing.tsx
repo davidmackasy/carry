@@ -12,7 +12,7 @@ import {
   WalletCards,
 } from 'lucide-react';
 
-const signupHref = '/auth/signup?next=%2F';
+const signupHref = '/auth/signup?next=%2Fapp';
 
 function Logo() {
   return (
@@ -22,7 +22,9 @@ function Logo() {
   );
 }
 
-export default function Landing() {
+export default function Landing({ signedIn = false }: { signedIn?: boolean }) {
+  const primaryHref = signedIn ? '/app' : signupHref;
+  const primaryLabel = signedIn ? 'Open Gift' : 'Start free';
   return (
     <main className="gift-landing">
       <header className="landing-header">
@@ -33,11 +35,11 @@ export default function Landing() {
           <a href="#pricing">Pricing</a>
         </nav>
         <div className="landing-header-actions">
-          <a className="landing-sign-in" href="/auth/login?next=%2F">
-            Sign in
+          <a className="landing-sign-in" href={signedIn ? '/app' : '/auth/login?next=%2Fapp'}>
+            {signedIn ? 'My account' : 'Sign in'}
           </a>
-          <a className="landing-button landing-button-dark" href={signupHref}>
-            Start free <ArrowRight size={16} />
+          <a className="landing-button landing-button-dark" href={primaryHref}>
+            {primaryLabel} <ArrowRight size={16} />
           </a>
         </div>
       </header>
@@ -51,8 +53,8 @@ export default function Landing() {
             what changed, and gently brings you back to the life you are building.
           </p>
           <div className="landing-hero-actions">
-            <a className="landing-button landing-button-dark" href={signupHref}>
-              Start your 14-day free trial <ArrowRight size={17} />
+            <a className="landing-button landing-button-dark" href={primaryHref}>
+              {signedIn ? 'Open Gift' : 'Start your 14-day free trial'} <ArrowRight size={17} />
             </a>
             <a className="landing-text-link" href="#product-preview">
               See Gift in action
@@ -165,7 +167,7 @@ export default function Landing() {
             <li><span>2</span><div><b>See today clearly</b><p>Know what is safe to spend after the commitments already on your calendar.</p></div></li>
             <li><span>3</span><div><b>Stay gently in the loop</b><p>Gift brings you back with useful reminders and clear next steps.</p></div></li>
           </ol>
-          <a className="landing-button landing-button-light" href={signupHref}>Build my first budget <ArrowRight size={17} /></a>
+          <a className="landing-button landing-button-light" href={primaryHref}>{signedIn ? 'Open my budget' : 'Build my first budget'} <ArrowRight size={17} /></a>
         </div>
         <div className="landing-how-visual">
           <article className="landing-phone-card">
@@ -213,7 +215,7 @@ export default function Landing() {
             <li><Check size={16} /> Receipt capture and Gift AI</li>
             <li><Check size={16} /> Cancel anytime</li>
           </ul>
-          <a className="landing-button landing-button-dark" href={signupHref}>Start free for 14 days <ArrowRight size={17} /></a>
+          <a className="landing-button landing-button-dark" href={primaryHref}>{signedIn ? 'Open Gift' : 'Start free for 14 days'} <ArrowRight size={17} /></a>
           <small>No charge today. Payment details are required to begin your trial.</small>
         </article>
       </section>
@@ -222,7 +224,7 @@ export default function Landing() {
         <Sparkles size={28} />
         <p className="landing-kicker">A little clarity goes a long way</p>
         <h2>Give your money a place that feels like you.</h2>
-        <a className="landing-button landing-button-light" href={signupHref}>Start my free trial <ArrowRight size={17} /></a>
+        <a className="landing-button landing-button-light" href={primaryHref}>{signedIn ? 'Open Gift' : 'Start my free trial'} <ArrowRight size={17} /></a>
       </section>
 
       <footer className="landing-footer">

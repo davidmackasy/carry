@@ -1,5 +1,5 @@
-import Landing from '@/features/marketing/landing';
+import { redirect } from 'next/navigation';
 
 export default function WelcomePage() {
-  return <Landing />;
+  redirect('/');
 }

@@ -30,7 +30,7 @@ const copy = {
 };
 export default function AuthForm({
   mode,
-  next = "/",
+  next = "/app",
   initialMessage = "",
 }: {
   mode: Mode;
@@ -192,7 +192,7 @@ export default function AuthForm({
           ) : (
             <a href="/auth/login">Back to sign in</a>
           )}
-          {mode === "signout" && <a href="/">Keep me signed in</a>}
+          {mode === "signout" && <a href="/app">Keep me signed in</a>}
           {mode === "reset" && (
             <a href="/auth/forgot">Request a new reset link</a>
           )}
