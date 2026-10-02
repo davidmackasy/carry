@@ -35,3 +35,16 @@ Final result: passed
 - Browser console verification returned no warnings or errors.
 
 Follow-up result: passed
+
+## Public landing page QA
+
+- Visual target: the established Gift dashboard design system, including editorial black type, sage, peach, lilac, warm paper surfaces, rounded cards, and Lucide line icons.
+- Verified the deployed `/welcome` route at a 1448 px desktop viewport and a 390 × 844 mobile viewport.
+- Desktop hero presents the product promise and dashboard preview above the fold with visible sign-in and trial actions.
+- Mobile hero, app preview, story cards, workflow, pricing, final CTA, and footer reflow into one readable column.
+- The page contains five account-creation entry points; each points to `/auth/signup?next=%2F`.
+- Trial terms are visible beside the $5.99 monthly price, including the 14-day period, payment-details requirement, and cancellation language.
+- `documentElement.scrollWidth` and `body.scrollWidth` remained 375 px at a 390 px viewport.
+- Browser console verification returned no warnings or errors.
+
+Landing page final result: passed

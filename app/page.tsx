@@ -1,4 +1,5 @@
 import Carry from '@/features/home/carry';
-import {requireChatGPTUser} from '@/app/chatgpt-auth';
+import Landing from '@/features/marketing/landing';
+import {getChatGPTUser} from '@/app/chatgpt-auth';
 export const dynamic='force-dynamic';
-export default async function Page(){await requireChatGPTUser('/');return <Carry/>;}
+export default async function Page(){const user=await getChatGPTUser();return user?<Carry/>:<Landing/>;}
