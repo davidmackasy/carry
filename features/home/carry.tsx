@@ -6,6 +6,7 @@ import Spending from "@/features/spending/view";
 import Bills from "@/features/bills/view";
 import Goals from "@/features/goals/view";
 import Advisor from "@/features/advisor/view";
+import AdminView from "@/features/admin/view";
 import Onboarding from "@/features/onboarding/view";
 import {
   Sheet,
@@ -52,7 +53,7 @@ const navigation = [
   { name: "Goals", icon: Flag },
   { name: "Advisor", label: "Gift AI", icon: MessageCircle },
 ];
-export default function Carry() {
+export default function Carry({ admin = false }: { admin?: boolean }) {
   const [mounted, setMounted] = useState(false);
   useEffect(() => setMounted(true), []);
   const [tab, setTab] = useState("Home");
@@ -73,6 +74,7 @@ export default function Carry() {
   };
   const firstName = state.name.split(" ")[0] || "friend";
   const tabLabel = tab === "Advisor" ? "Gift AI" : tab;
+  const adminMode = tab === "Admin";
   const outstanding = outstandingUpdates(state);
   const missedBillCount = outstanding.filter(
     (item) => item.kind === "bill",
@@ -136,6 +138,12 @@ export default function Carry() {
           <span className="tagline">Give every dollar a purpose.</span>
         </SidebarHeader>
         <SidebarContent>
+          {admin && (
+            <div className="account-mode-switch" aria-label="Account mode">
+              <button className={!adminMode ? "active" : ""} onClick={() => setTab("Home")}>Personal</button>
+              <button className={adminMode ? "active" : ""} onClick={() => setTab("Admin")}><ShieldCheck size={14}/> Admin</button>
+            </div>
+          )}
           <span className="eyebrow nav-label">YOUR MONEY</span>
           <nav>
             {navigation.map(({ name, label, icon: Icon }) => (
@@ -190,6 +198,7 @@ export default function Carry() {
           </span>
           <span className="mobile-brand">Gift</span>
           <div className="header-actions">
+            {admin && <button className="admin-mobile-toggle" onClick={() => setTab(adminMode ? "Home" : "Admin")}><ShieldCheck size={15}/>{adminMode ? "Personal" : "Admin"}</button>}
             <span className="date-label">
               <CalendarDays size={14} aria-hidden="true" />
               <time
@@ -241,7 +250,7 @@ export default function Carry() {
             <div className="page-heading">
               <div>
                 <p className="eyebrow">A CLEARER PICTURE, EVERY DAY</p>
-                <h1>{tab === "Home" ? `Hello, ${firstName} 👋` : tabLabel}</h1>
+                <h1>{tab === "Home" ? `Hello, ${firstName} 👋` : adminMode ? "Admin overview" : tabLabel}</h1>
                 <p className="subtle">
                   {
                     {
@@ -250,11 +259,12 @@ export default function Carry() {
                       Bills: "Your commitments, comfortably covered.",
                       Goals: "Make a little room for what’s next.",
                       Advisor: "A clearer view of your next move.",
+                      Admin: "Customers, subscriptions, and account care.",
                     }[tab]
                   }
                 </p>
               </div>
-              <button
+              {!adminMode && <button
                 className="round-add"
                 aria-label={
                   tab === "Bills"
@@ -274,7 +284,7 @@ export default function Carry() {
                 }
               >
                 <Plus size={22} />
-              </button>
+              </button>}
             </div>
             {f.offline && (
               <div className="notice-banner">
@@ -313,7 +323,8 @@ export default function Carry() {
             {tab === "Advisor" && (
               <Advisor state={state} demo={f.demo} open={open} />
             )}
-            {state.purchases.length > 0 && (
+            {adminMode && <AdminView />}
+            {!adminMode && state.purchases.length > 0 && (
               <section className="card">
                 <h3>Planned purchases</h3>
                 {state.purchases.map((p) => (

@@ -1,0 +1,30 @@
+'use client';
+import {useCallback,useEffect,useMemo,useState} from 'react';
+import {Ban,CheckCircle2,Clock3,RefreshCw,Search,Send,ShieldCheck,Users} from 'lucide-react';
+
+type Billing={status:string;access:boolean;trialEligible:boolean;trialEnd?:number;periodEnd?:number;cancelAtPeriodEnd?:boolean;hasCustomer:boolean};
+type Customer={id:string;email:string;name:string;createdAt:string;lastSignInAt:string|null;emailConfirmed:boolean;bannedUntil:string|null;onboarding:'completed'|'in_progress'|'not_started';updatedAt:string|null;activity:{transactions:number;bills:number;goals:number};billing:Billing};
+type Result={admin:{email:string};customers:Customer[];summary:{total:number;trialing:number;paid:number;completed:number;banned:number};error?:string};
+const date=(value:string|number|null|undefined)=>!value?'Never':new Date(typeof value==='number'?value*1000:value).toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'});
+const plan=(billing:Billing)=>billing.status==='trialing'?'Free trial':billing.status==='active'?'Paid':billing.status==='none'?'No plan':billing.status.replaceAll('_',' ');
+const onboarding=(value:Customer['onboarding'])=>value==='completed'?'Setup complete':value==='in_progress'?'Setup in progress':'Setup not started';
+export default function AdminView(){
+ const [result,setResult]=useState<Result|null>(null),[error,setError]=useState(''),[busy,setBusy]=useState(''),[query,setQuery]=useState(''),[notice,setNotice]=useState('');
+ const load=useCallback(async()=>{setError('');try{const response=await fetch('/api/admin',{cache:'no-store'});const data=await response.json() as Result;if(!response.ok)throw new Error(data.error||'Could not load customers.');setResult(data);}catch(e){setError(e instanceof Error?e.message:'Could not load customers.');}},[]);
+ useEffect(()=>{void load()},[load]);
+ const customers=useMemo(()=>{const search=query.trim().toLowerCase();return (result?.customers??[]).filter(customer=>!search||`${customer.name} ${customer.email} ${plan(customer.billing)} ${onboarding(customer.onboarding)}`.toLowerCase().includes(search));},[query,result]);
+ async function act(customer:Customer,action:'reset_password'|'ban'|'unban'){
+  if(action==='ban'&&!window.confirm(`Suspend ${customer.email}? They will not be able to sign in until you restore access.`))return;
+  setBusy(`${customer.id}:${action}`);setError('');setNotice('');
+  try{const response=await fetch('/api/admin',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action,userId:customer.id})});const data=await response.json() as {error?:string;message?:string};if(!response.ok)throw new Error(data.error||'Action failed.');setNotice(data.message??'Done.');await load();}catch(e){setError(e instanceof Error?e.message:'Action failed.');}finally{setBusy('');}
+ }
+ if(!result&&!error)return <div className="admin-loading"><RefreshCw className="spin" size={20}/> Loading customer activity…</div>;
+ return <div className="gift-admin">
+  <section className="admin-intro"><div><span className="eyebrow"><ShieldCheck size={15}/> PRIVATE ADMIN CONSOLE</span><h2>Customer care, in one place.</h2><p>Review signups, onboarding, subscription access, and recent account activity. Financial details remain private.</p></div><button className="secondary" onClick={load}><RefreshCw size={16}/> Refresh</button></section>
+  {error&&<p className="error-message" role="alert">{error}</p>}{notice&&<p className="notice-banner" role="status">{notice}</p>}
+  {result&&<><div className="admin-metrics" aria-label="Customer summary"><article><Users/><span>All customers</span><strong>{result.summary.total}</strong></article><article><Clock3/><span>Free trials</span><strong>{result.summary.trialing}</strong></article><article><CheckCircle2/><span>Paid plans</span><strong>{result.summary.paid}</strong></article><article><ShieldCheck/><span>Setup complete</span><strong>{result.summary.completed}</strong></article></div>
+  <div className="admin-toolbar"><label className="search-box"><Search size={17}/><input aria-label="Search customers" placeholder="Search name, email, plan, or setup" value={query} onChange={event=>setQuery(event.target.value)}/></label><span>{customers.length} shown</span></div>
+  <div className="admin-customer-list">{customers.map(customer=>{const banned=!!customer.bannedUntil&&Date.parse(customer.bannedUntil)>Date.now();return <article className="card admin-customer" key={customer.id}><div className="admin-customer-heading"><span className="avatar">{(customer.name[0]||customer.email[0]||'G').toUpperCase()}</span><div><h3>{customer.name}</h3><p>{customer.email}</p></div><span className={`admin-plan ${customer.billing.status}`}>{plan(customer.billing)}</span></div><div className="admin-customer-facts"><span><small>Joined</small>{date(customer.createdAt)}</span><span><small>Last sign-in</small>{date(customer.lastSignInAt)}</span><span><small>Onboarding</small>{onboarding(customer.onboarding)}</span><span><small>Activity</small>{customer.activity.transactions} spends · {customer.activity.bills} bills · {customer.activity.goals} goals</span>{customer.billing.status==='trialing'&&<span><small>Trial ends</small>{date(customer.billing.trialEnd)}</span>}{customer.billing.status==='active'&&<span><small>Renews</small>{date(customer.billing.periodEnd)}</span>}</div>{banned&&<p className="admin-ban-note"><Ban size={15}/> Access suspended until restored by an admin.</p>}<div className="admin-actions"><button className="secondary" disabled={!!busy} onClick={()=>act(customer,'reset_password')}><Send size={15}/>{busy===`${customer.id}:reset_password`?'Sending…':'Send password reset'}</button><button className={banned?'secondary':'danger-button'} disabled={!!busy} onClick={()=>act(customer,banned?'unban':'ban')}><Ban size={15}/>{busy.startsWith(customer.id)?'Working…':banned?'Restore access':'Suspend access'}</button></div></article>})}</div>
+  {!customers.length&&<div className="empty-state"><h3>No customers match this search</h3><p>Try a name, email address, plan, or onboarding status.</p></div>}</>}
+ </div>;
+}

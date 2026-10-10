@@ -5,9 +5,19 @@ type Session={id:string;url:string;status:string};
 export class BillingAccount extends DurableObject<BillingEnv>{
  async fetch(request:Request):Promise<Response>{return this.ctx.blockConcurrencyWhile(async()=>{
  try{
- const {action,userId,email,interval}=await request.json() as {action:string;userId:string;email:string;interval?:string};
+ const {action,userId,email,interval,eventId}=await request.json() as {action:string;userId:string;email:string;interval?:string;eventId?:string};
  const owner=await this.ctx.storage.get<string>('owner');if(owner&&owner!==userId)return Response.json({error:'Invalid billing owner'},{status:403});
  await this.ctx.storage.put('owner',userId);
+ if(['claim_admin_event','complete_admin_event','release_admin_event'].includes(action)){
+  if(!eventId||!/^evt_[A-Za-z0-9_]+$/.test(eventId))return Response.json({error:'Invalid event'},{status:400});
+  const key=`admin-event:${eventId}`,record=await this.ctx.storage.get<{status:string;claimedAt:number}>(key);
+  if(action==='claim_admin_event'){
+   if(record?.status==='sent'||(record?.status==='sending'&&Date.now()-record.claimedAt<300000))return Response.json({claimed:false});
+   await this.ctx.storage.put(key,{status:'sending',claimedAt:Date.now()});return Response.json({claimed:true});
+  }
+  if(action==='complete_admin_event'){await this.ctx.storage.put(key,{status:'sent',claimedAt:Date.now()});return Response.json({ok:true});}
+  await this.ctx.storage.delete(key);return Response.json({ok:true});
+ }
  let customer=await this.ctx.storage.get<string>('customer');
  if(!customer&&action==='checkout'){
   // Persist the idempotency key before the network call, including retries after interruption.

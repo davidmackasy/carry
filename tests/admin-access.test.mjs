@@ -1,0 +1,4 @@
+import {test} from 'node:test';import assert from 'node:assert/strict';import {build} from 'esbuild';
+const result=await build({entryPoints:['lib/admin/access.ts'],bundle:true,write:false,platform:'node',format:'esm',external:['@/app/chatgpt-auth'],plugins:[{name:'workers',setup(b){b.onResolve({filter:/^cloudflare:workers$/},()=>({path:'workers',namespace:'mock'}));b.onLoad({filter:/.*/,namespace:'mock'},()=>({contents:'export const env={}',loader:'js'}));}}]});
+const source=result.outputFiles[0].text.replace(/import[^;]+chatgpt-auth[^;]+;/,'');const {isAdminEmail}=await import('data:text/javascript;base64,'+Buffer.from(source).toString('base64'));
+test('admin allowlist is case-insensitive and requires an exact email',()=>{assert.equal(isAdminEmail('Owner@Example.com','other@example.com, owner@example.com'),true);assert.equal(isAdminEmail('attacker+owner@example.com','owner@example.com'),false);assert.equal(isAdminEmail('owner@example.com',''),false);});
