@@ -1,62 +1,59 @@
-# Mobile UI and receipt capture design QA
+# Admin dashboard design QA
 
-## Source
+- Source visual truth: `/var/folders/cy/gknzj2hx0gb25d4mlf1szjx40000gn/T/TemporaryItems/NSIRD_screencaptureui_W7Y1at/Screenshot 2026-10-10 at 2.42.24 AM.png`
+- Source pixels: 1896 × 948
+- Implementation: `https://gift.davidmackasy.workers.dev/app` in authenticated Admin mode, Codex in-app Browser tab 1
+- Implementation evidence: live browser screenshots captured at the default desktop viewport, 390 × 844 CSS px, and 320 × 780 CSS px
+- Density normalization: visual comparison used CSS viewport rendering; the source screenshot was evaluated at its native desktop density. Mobile was evaluated as a responsive adaptation rather than a pixel-identical crop.
+- State: authenticated administrator with two customer records, one free trial, one completed setup, and active customer-management controls
 
-- User screenshots: `Photo 1.jpg` and `Photo 2.jpg`
-- Failure state: desktop breadcrumb, full date, logo, notification control, and profile control overflowed the mobile header; the page could be scrolled sideways; native file-input text escaped the receipt card.
+**Findings**
 
-## Verified implementation
+- No actionable P0, P1, or P2 findings remain.
+- Fonts and typography: the existing Gift system font stack, weights, and restrained hierarchy are preserved. The hero headline now wraps naturally at narrow widths instead of being forced into a word-wide column.
+- Spacing and layout rhythm: the hero uses a stable content/action grid on desktop and a single-column stack on mobile. Summary cards, directory heading, search, customer facts, and actions keep consistent gaps and radii.
+- Colors and visual tokens: lavender, sage, peach, neutral borders, and restrained semantic danger colors remain consistent with the current Gift application.
+- Image quality and asset fidelity: no raster imagery is required for this administrative interface. Existing Lucide interface icons remain crisp and consistent at all tested sizes.
+- Copy and content: the existing private-admin message is preserved, while “Refresh data,” “Customer directory,” and “Customers” improve clarity.
 
-- Live production app inspected at a 390 × 844 mobile viewport.
-- Home, Spending, Grocery receipt capture, Bills, Goals, and Gift AI were checked.
-- `documentElement.scrollWidth` and `body.scrollWidth` remained below `window.innerWidth` on every checked page.
-- The mobile header contains the Gift wordmark, compact date, notification control, and profile control without clipping.
-- The Grocery receipt screen uses two contained tap targets for camera and photo-library input.
-- Receipt review fields stack in one column on mobile; item name, price, category, and remove controls reflow without leaving the card.
-- Bottom navigation remains fixed and all five destinations fit the viewport.
-- Browser console check returned no warnings or errors.
+**Full-view comparison evidence**
 
-## Remaining findings
+- The source showed the shared full-width secondary button crushing the hero copy into a narrow left column. The deployed desktop capture shows a readable 620px copy region and a compact top-right Refresh data action.
+- At 390 × 844, the hero, four metrics, directory heading, search, customer cards, facts, and management actions remain within the viewport with no horizontal overflow.
+- At 320 × 780, summary cards intentionally collapse to one column and the admin header hides the date to preserve room for the Personal switch, notifications, and profile controls.
 
-- P0: none.
-- P1: none.
-- P2: none.
-- P3: Home summary cards intentionally use an in-card horizontal carousel to preserve readable figures on small screens. This does not widen the document.
+**Focused region comparison evidence**
 
-Final result: passed
+- Hero: verified headline wrapping, copy measure, refresh-button width, border, and padding.
+- Customer cards: verified long email wrapping, two-column facts at 390px, one-column facts at 320px, and full-width 44px action targets.
+- Persistent navigation: verified the top utility header and bottom mobile navigation stay visible without covering the core controls during normal scrolling.
 
-## Mobile section rhythm follow-up
+**Interaction and runtime checks**
 
-- Rechecked the live production app at 390 × 844 after the section-spacing update.
-- Grocery receipt review, shopping list, and purchase history now have an 18 px gutter, distinct surface colors, soft borders, and restrained elevation.
-- Shopping suggestions render as contained chips, and purchase-history rows have their own inset boundary.
-- Spending, Bills, Goals, and Gift AI use the same mobile card treatment and vertical rhythm.
-- Every checked page remained within the viewport (`documentElement.scrollWidth` and `body.scrollWidth` were 375 px for a 390 px viewport).
-- Browser console verification returned no warnings or errors.
+- Admin mode switch opened the secure dashboard.
+- Customer API loaded two records and all summary metrics.
+- Search reduced the result count from two to one and cleared successfully.
+- Console warnings/errors checked: none.
+- DOM overflow check at the narrow viewport: `scrollWidth` equaled `clientWidth` (305px), so no horizontal overflow remained.
 
-Follow-up result: passed
+**Comparison history**
 
-## Public landing page QA
+1. Earlier P1: shared `.secondary { width: 100% }` expanded the Refresh control and collapsed the hero copy. Fixed with an explicit admin grid, intrinsic action width, and bounded copy measure. Post-fix desktop capture shows the correct proportions.
+2. Earlier P2: compact admin controls competed with the mobile date/header space. Fixed by applying the admin app-shell class and hiding the date below 640px while retaining brand, mode switch, notifications, and profile. Post-fix 390px and 320px captures show no clipping.
+3. Earlier P2: customer metadata and actions lacked a reliable narrow-screen layout. Fixed with responsive facts, wrapped identity text, stacked actions, and 44px targets. Post-fix mobile scrolling shows complete customer cards and both actions.
 
-- Visual target: the established Gift dashboard design system, including editorial black type, sage, peach, lilac, warm paper surfaces, rounded cards, and Lucide line icons.
-- Verified the deployed `/welcome` route at a 1448 px desktop viewport and a 390 × 844 mobile viewport.
-- Desktop hero presents the product promise and dashboard preview above the fold with visible sign-in and trial actions.
-- Mobile hero, app preview, story cards, workflow, pricing, final CTA, and footer reflow into one readable column.
-- The page contains five account-creation entry points; each points to `/auth/signup?next=%2F`.
-- Trial terms are visible beside the $5.99 monthly price, including the 14-day period, payment-details requirement, and cancellation language.
-- `documentElement.scrollWidth` and `body.scrollWidth` remained 375 px at a 390 px viewport.
-- Browser console verification returned no warnings or errors.
+**Implementation Checklist**
 
-Landing page final result: passed
+- [x] Fix desktop hero width collision.
+- [x] Improve dashboard hierarchy and summary-card differentiation.
+- [x] Add a clear directory heading and result count.
+- [x] Prevent long identity and activity text from overflowing.
+- [x] Stack mobile actions and preserve touch-target sizes.
+- [x] Validate 390px and 320px responsive layouts.
+- [x] Validate customer search and console state.
 
-## Public and private route separation
+**Follow-up Polish**
 
-- Verified the deployed root domain while signed in: `/` remains on the public landing page and shows `My account` and `Open Gift` actions.
-- Verified every signed-in landing-page CTA points to `/app`.
-- Verified `/welcome` redirects to `/` so there is one canonical marketing address.
-- Verified `/app` loads the authenticated Gift dashboard.
-- Sign-in, signup, email confirmation, password reset, import, billing, and reminder-email return links now use `/app` when opening the private product.
-- Authentication regression suite: 10 tests passed.
-- Browser console verification returned no warnings or errors.
+- P3: A future iteration could add optional pagination once the customer list grows beyond a single screen.
 
-Routing final result: passed
+final result: passed
