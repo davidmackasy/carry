@@ -191,7 +191,7 @@ export default function Carry({ admin = false }: { admin?: boolean }) {
           </button>
         </SidebarFooter>
       </Sidebar>
-      <div className="app-body">
+      <div className={adminMode ? "app-body admin-app-body" : "app-body"}>
         <header className="topbar">
           <span className="breadcrumb">
             My overview <span>/</span> {tabLabel}
