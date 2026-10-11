@@ -20,7 +20,7 @@ export default function Planner({state,navigate,open}:{state:FinanceState;naviga
   <section className="planner-hero">
    <div><span className="eyebrow"><CalendarRange size={14}/> YOUR LIVE PLAN · {periodLabel(plan.period.start,plan.period.end)}</span><h2>Every dollar, thoughtfully planned.</h2><p>Gift organizes your expected income across bills, everyday spending, and goals—then tracks what actually happens.</p></div>
    <div className="planner-hero-total"><span>Projected cash after this plan</span><strong>{money(plan.projectedCash,2)}</strong><small>{plan.projectedCash>=plan.protectedMinimum?`${money(plan.projectedCash-plan.protectedMinimum,2)} above your protected buffer`:`${money(plan.protectedMinimum-plan.projectedCash,2)} below your protected buffer`}</small></div>
-   <div className="planner-mascot"><Image src="/images/gigi-mascot.png" width={284} height={320} sizes="(max-width: 700px) 120px, 180px" alt="Gigi, Gift’s friendly planning guide" priority/><span>Meet Gigi, your planning guide.</span></div>
+   <div className="planner-mascot"><Image src="/images/kiki-mascot.png" width={284} height={320} sizes="(max-width: 700px) 120px, 180px" alt="Kiki, Gift’s friendly planning guide" priority/><span>Kiki is keeping an eye on your plan.</span></div>
   </section>
   <div className="planner-period-progress"><div className="flex-between"><span>{plan.period.elapsed} of {plan.period.total} days</span><b>{Math.round(plan.period.progress*100)}% through this period</b></div><progress max="100" value={plan.period.progress*100}/></div>
   <section className="planner-balance-grid">

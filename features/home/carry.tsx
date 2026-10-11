@@ -8,6 +8,7 @@ import Bills from "@/features/bills/view";
 import Goals from "@/features/goals/view";
 import Advisor from "@/features/advisor/view";
 import AdminView from "@/features/admin/view";
+import Kiki from "@/components/carry/kiki";
 import Onboarding from "@/features/onboarding/view";
 import {
   Sheet,
@@ -253,7 +254,14 @@ export default function Carry({ admin = false }: { admin?: boolean }) {
             <div className="page-heading">
               <div>
                 <p className="eyebrow">A CLEARER PICTURE, EVERY DAY</p>
-                <h1>{tab === "Home" ? `Hello, ${firstName} 👋` : adminMode ? "Admin overview" : tabLabel}</h1>
+                {tab === "Home" ? (
+                  <div className="home-welcome-row">
+                    <h1>{`Hello, ${firstName} 👋`}</h1>
+                    <Kiki onAction={() => setTab("Advisor")} />
+                  </div>
+                ) : (
+                  <h1>{adminMode ? "Admin overview" : tabLabel}</h1>
+                )}
                 <p className="subtle">
                   {
                     {

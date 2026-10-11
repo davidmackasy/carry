@@ -1,6 +1,7 @@
 "use client";
 import { useState } from "react";
 import { ArrowUp, ArrowUpRight, MessageCircle } from "lucide-react";
+import Kiki from "@/components/carry/kiki";
 import type { FinanceState } from "@/types/finance";
 import { advisorAnswer } from "@/services/finance";
 export default function Advisor({
@@ -59,15 +60,18 @@ export default function Advisor({
   return (
     <div className="advisor gift-page gift-advisor">
       <div className="advisor-intro">
-        <span className="advisor-mark">
-          <MessageCircle size={30} />
-        </span>
-        <h2>A little clarity, just for you.</h2>
-        <p>Make your next money decision with a little more confidence.</p>
-        <span className="small-note">
-          Ask your own questions. Gift uses your saved budget and calculations
-          to give a personalized answer.
-        </span>
+        <div className="advisor-intro-copy">
+          <span className="advisor-mark">
+            <MessageCircle size={24} />
+          </span>
+          <h2>Meet Kiki, your Gift AI guide.</h2>
+          <p>Make your next money decision with a little more confidence.</p>
+          <span className="small-note">
+            Ask your own questions. Kiki uses your saved budget and Gift’s
+            calculations to give a personalized answer.
+          </span>
+        </div>
+        <Kiki variant="advisor" />
       </div>
       <button className="afford-card" onClick={() => open("purchase")}>
         <b>Can I afford it?</b>
@@ -98,13 +102,13 @@ export default function Advisor({
               {m.role === "user"
                 ? "YOU"
                 : m.source === "gpt-5"
-                  ? "Gift AI"
+                  ? "Kiki · Gift AI"
                   : "Gift calculation"}
             </span>
             <p>{m.text}</p>
           </div>
         ))}
-        {busy && <p className="subtle">Checking your numbers…</p>}
+        {busy && <p className="subtle">Kiki is checking your numbers…</p>}
       </div>
       {error && <p className="error-message">{error}</p>}
       <form
@@ -117,8 +121,8 @@ export default function Advisor({
         <input
           value={question}
           onChange={(e) => setQuestion(e.target.value)}
-          aria-label="Ask about your money"
-          placeholder="What’s on your mind?"
+          aria-label="Ask Kiki about your money"
+          placeholder="Ask Kiki about your money…"
           maxLength={1000}
         />
         <button
