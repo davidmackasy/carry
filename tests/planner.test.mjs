@@ -1,0 +1,11 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import {build} from 'esbuild';
+const bundled=await build({entryPoints:['services/finance/planner.ts'],bundle:true,write:false,platform:'node',format:'esm'});
+const {buildBudgetPlan}=await import('data:text/javascript;base64,'+Buffer.from(bundled.outputFiles[0].text).toString('base64'));
+
+const state=()=>({name:'Planner test',timezone:'America/Los_Angeles',accounts:[{id:'cash',name:'Checking',balance:150000}],income:[{id:'pay',name:'Paycheck',amount:200000,date:'2026-10-15',frequency:'monthly',receivedDates:[]}],bills:[{id:'rent',name:'Rent',amount:100000,date:'2026-10-01',frequency:'monthly',subscription:false,paused:false,paidDates:['2026-10-01']},{id:'phone',name:'Phone',amount:5000,date:'2026-10-12',frequency:'monthly',subscription:false,paused:false,paidDates:[]}],categories:[{id:'food',name:'Food',icon:'leaf',budget:60000}],transactions:[{id:'t',merchant:'Market',amount:15000,date:'2026-10-08',categoryId:'food',excluded:false,recurring:false,note:''}],goals:[{id:'g',name:'Trip',icon:'',target:100000,saved:20000,contribution:10000,date:'2026-10-20',targetDate:'2027-01-01'}],purchases:[],protectedMinimum:50000,periodStart:'2026-10-01',periodEnd:'2026-10-31',budgetCycle:'monthly',budgetHistory:[],snapshots:[],notificationSettings:{bills:true,budget:true,goals:true},onboarded:true});
+
+test('planner combines expected income, obligations, limits, goals, and actual activity',()=>{const plan=buildBudgetPlan(state(),'2026-10-10');assert.equal(plan.income.planned,200000);assert.equal(plan.bills.planned,105000);assert.equal(plan.bills.paid,100000);assert.equal(plan.spending.planned,60000);assert.equal(plan.spending.spent,15000);assert.equal(plan.goals.planned,10000);assert.equal(plan.plannedOutflow,175000);assert.equal(plan.plannedRemainder,25000);assert.equal(plan.projectedCash,290000);assert.equal(plan.categories[0].status,'on_track');});
+
+test('planner flags overspending and a threatened protected buffer',()=>{const s=state();s.accounts[0].balance=10000;s.income=[];s.transactions[0].amount=70000;const plan=buildBudgetPlan(s,'2026-10-25');assert.equal(plan.categories[0].status,'over');assert.ok(plan.guidance.some(item=>item.tone==='urgent'));assert.ok(plan.guidance.some(item=>item.action==='spending'));});

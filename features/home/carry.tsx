@@ -3,6 +3,7 @@ import { useState, useEffect } from "react";
 import { useFinance } from "@/features/use-finance";
 import Overview from "@/features/home/overview";
 import Spending from "@/features/spending/view";
+import Planner from "@/features/planner/view";
 import Bills from "@/features/bills/view";
 import Goals from "@/features/goals/view";
 import Advisor from "@/features/advisor/view";
@@ -23,6 +24,7 @@ import {
   Home,
   ArrowUpRight,
   Wallet,
+  PieChart,
   CalendarDays,
   Flag,
   MessageCircle,
@@ -48,6 +50,7 @@ import { sampleState } from "@/services/finance/sample";
 import { summarize, money } from "@/services/finance";
 const navigation = [
   { name: "Home", icon: Home },
+  { name: "Planner", icon: PieChart },
   { name: "Spending", icon: Wallet },
   { name: "Bills", icon: CalendarDays },
   { name: "Goals", icon: Flag },
@@ -255,6 +258,7 @@ export default function Carry({ admin = false }: { admin?: boolean }) {
                   {
                     {
                       Home: "Here’s your money today.",
+                      Planner: "A living plan for every dollar.",
                       Spending: "A place for every part of your day.",
                       Bills: "Your commitments, comfortably covered.",
                       Goals: "Make a little room for what’s next.",
@@ -315,6 +319,9 @@ export default function Carry({ admin = false }: { admin?: boolean }) {
             )}
             {tab === "Spending" && (
               <Spending state={state} open={open} save={f.save} />
+            )}
+            {tab === "Planner" && (
+              <Planner state={state} navigate={setTab} open={open} />
             )}
             {tab === "Bills" && <Bills state={state} open={open} />}
             {tab === "Goals" && (
